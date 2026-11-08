@@ -1,0 +1,1586 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1B5ACB">
+<meta name="description" content="지적확정측량 성과검사 현장에서 사진에 경계선·지번 라벨을 표시하고 촬영위치도와 현지사진 보고서를 만드는 웹앱">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="확정측량">
+<title>지적확정측량 현장지원</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);color-scheme:light}
+body{margin:0}
+img{max-width:100%}
+/* Layout: 현장용 지도-우선 앱. 휴대폰은 탭 전환, 태블릿(900px+)은 지도 | 사진·보고서 2단 */
+:root{
+  --bg:#F3F6FA; --surface:#FFFFFF; --fg:#12223A; --muted:#56677F; --line:#D3DCE8;
+  --accent:#1B5ACB; --accent-ink:#FFFFFF; --accent-soft:#E2EBFA;
+  --ok:#1E7A4C; --ok-soft:#E0F2E9; --warn:#9A5600; --warn-soft:#FBEEDB; --danger:#C3292B;
+  --map-bg:#FFFFFF; --parcel:#8392A8; --district:#E0262B; --district-fill:rgba(224,38,43,.05); --label:#2E3C55;
+  --ed-bg:#0B0F16; --ed-fg:#E8EEF6; --ed-panel:#151C27; --ed-line:#2A3546;
+  --f-ui:"IBM Plex Sans KR","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1520; --surface:#151F2C; --fg:#E4EBF5; --muted:#93A2B7; --line:#283749;
+  --accent:#5D9BFF; --accent-ink:#0A1322; --accent-soft:#1B2C47;
+  --ok:#53C892; --ok-soft:#173326; --warn:#F2AA52; --warn-soft:#3A2A14; --danger:#FF6E6E;
+  --map-bg:#0F1925; --parcel:#7689A5; --district:#FF5C5C; --district-fill:rgba(255,92,92,.07); --label:#C5D2E4;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1520; --surface:#151F2C; --fg:#E4EBF5; --muted:#93A2B7; --line:#283749;
+  --accent:#5D9BFF; --accent-ink:#0A1322; --accent-soft:#1B2C47;
+  --ok:#53C892; --ok-soft:#173326; --warn:#F2AA52; --warn-soft:#3A2A14; --danger:#FF6E6E;
+  --map-bg:#0F1925; --parcel:#7689A5; --district:#FF5C5C; --district-fill:rgba(255,92,92,.07); --label:#C5D2E4;
+  color-scheme:dark}
+html,body{height:100%}
+body{overflow-x:hidden}
+.app{max-width:100%;overflow-x:hidden}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px;line-height:1.5;-webkit-tap-highlight-color:transparent}
+button,select,input,label.btn{font:inherit;color:inherit}
+.app{height:100%;display:grid;grid-template-rows:auto auto auto 1fr;grid-template-columns:minmax(0,1fr);min-height:0}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{display:flex;align-items:center;gap:12px;padding-block:10px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.mark{width:34px;height:34px;flex:none;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700;font-size:13px;letter-spacing:.02em}
+.brand b{display:block;font-size:16px;line-height:1.25}
+.brand .sub{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand>div{min-width:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-weight:600;font-size:14px;white-space:nowrap;user-select:none}
+.btn:hover{border-color:var(--accent)}
+.filebtn{position:relative;overflow:hidden}
+.filebtn input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:100px;margin:0;padding:0}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--danger)}
+.btn.sm{min-height:34px;padding:0 10px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:default}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding-block:8px;background:var(--warn-soft);color:var(--warn);font-size:13.5px;border-bottom:1px solid var(--line)}
+.banner b{color:var(--fg)}
+.tabs{display:flex;gap:4px;background:var(--surface);border-bottom:1px solid var(--line)}
+.tab{flex:1;min-height:44px;border:0;background:none;cursor:pointer;font-weight:600;color:var(--muted);border-bottom:3px solid transparent}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.main{min-height:0;display:flex;flex-direction:column}
+.view{display:none;min-height:0;flex:1;flex-direction:column}
+.app[data-view="map"] #v-map,.app[data-view="photos"] #v-photos,.app[data-view="report"] #v-report{display:flex}
+@media (min-width:900px){
+  .main{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,420px);min-height:560px}
+  .mapwrap{min-height:520px}
+  #v-map{display:flex!important;border-right:1px solid var(--line)}
+  .app[data-view="map"] #v-photos{display:flex}
+  .tab[data-v="map"]{display:none}
+}
+/* map */
+.mapwrap{position:relative;overflow:hidden;flex:1;min-height:max(460px,62vh);background:var(--map-bg)}
+.app{min-height:max(600px,100vh)}
+#map{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.mapbar{position:absolute;top:10px;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start;pointer-events:none}
+.mapbar>.row{justify-content:flex-end;margin-left:auto}
+.legend{min-width:0}
+@media (max-width:560px){.legend{font-size:11px;gap:8px;padding:4px 8px}.legend #mapStat{display:none}}
+.mapbar>*{pointer-events:auto}
+.legend{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap}
+.legend i{display:inline-block;width:16px;height:0;border-top:2px solid var(--parcel);vertical-align:middle;margin-right:5px}
+.legend i.d{border-top:3px solid var(--district)}
+#btnGps[aria-pressed="true"],#btnVw[aria-pressed="true"],#gpsFollow[aria-pressed="true"],#btnOrtho[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.gpsinfo{position:absolute;top:56px;right:max(10px,env(safe-area-inset-right,0px));width:min(320px,calc(100% - 20px));background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px;display:flex;flex-direction:column;gap:6px;box-shadow:0 4px 16px rgba(0,0,0,.14);font-size:13px}
+.gpsline{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.gpsline b{font-size:14px}
+.setloc{position:absolute;left:50%;transform:translateX(-50%);top:56px;background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 8px 8px 16px;display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.18);max-width:calc(100% - 32px)}
+.setloc button{background:rgba(255,255,255,.2);border:0;color:inherit;border-radius:999px;padding:6px 12px;font-weight:600;cursor:pointer}
+.fabs{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.fab{box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.fab.cam{min-height:52px;padding:0 20px;font-size:15px}
+.selcard{position:absolute;left:max(12px,env(safe-area-inset-left,0px));bottom:12px;right:150px;max-width:420px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px;display:flex;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.selcard canvas{width:84px;height:63px;border-radius:6px;flex:none;background:var(--bg)}
+.selcard .info{min-width:0;flex:1;display:flex;flex-direction:column;gap:6px}
+.selcard .coord{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+@media (max-width:560px){.selcard{right:12px;bottom:128px}}
+/* side panels */
+.panel{flex:1;min-height:0;overflow:auto;padding-block:14px 32px;display:flex;flex-direction:column;gap:14px}
+.phead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.phead h2,.sec h3{margin:0;font-size:16px}
+.muted{color:var(--muted);font-size:13px}
+.list{display:flex;flex-direction:column;gap:10px}
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px;display:grid;grid-template-columns:112px minmax(0,1fr);gap:10px}
+.pcard.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.pcard canvas{width:112px;height:84px;border-radius:6px;background:var(--bg);cursor:pointer}
+.pbody{min-width:0;display:flex;flex-direction:column;gap:6px}
+.no{display:inline-grid;place-items:center;min-width:28px;height:24px;padding:0 6px;border:1.5px solid var(--fg);border-radius:4px;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;background:var(--surface)}
+.pill{display:inline-flex;align-items:center;font-size:12px;padding:2px 8px;border-radius:999px;font-weight:600}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.tagline{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.pcard select,.pcard input,.field select,.field input,.ed-panel input{min-height:36px;border:1px solid var(--line);border-radius:7px;background:var(--surface);padding:0 8px;font-size:14px;min-width:0}
+.pcard input{width:100%}
+.pbtns{display:flex;gap:6px;flex-wrap:wrap}
+.pcard .pbtns{grid-column:1/-1}
+.empty{border:1.5px dashed var(--line);border-radius:var(--r);padding:22px;text-align:center;color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:10px;align-items:center}
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field>label,.field>span{font-size:13px;font-weight:600;color:var(--muted)}
+.field small{color:var(--muted);font-size:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:420px){.grid2{grid-template-columns:1fr}}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.checks li{display:flex;gap:8px;align-items:flex-start}
+.checks .dot{width:8px;height:8px;border-radius:50%;margin-top:7px;flex:none;background:var(--ok)}
+.checks .w .dot{background:var(--warn)}
+.opt{display:flex;align-items:center;gap:8px;font-size:14px}
+.opt input{width:18px;height:18px}
+/* modal */
+.modal{position:fixed;inset:0;z-index:40;background:rgba(8,14,24,.45);display:flex;align-items:flex-end;justify-content:center}
+@media (min-width:640px){.modal{align-items:center}}
+.sheet{background:var(--surface);width:100%;max-width:560px;max-height:88%;overflow:auto;border-radius:14px 14px 0 0;padding:18px max(18px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:12px}
+@media (min-width:640px){.sheet{border-radius:14px}}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sheet h2{margin:0;font-size:18px}
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat div{background:var(--bg);border-radius:8px;padding:8px 10px}
+.stat b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+/* editor */
+.editor{position:fixed;inset:0;z-index:30;background:var(--ed-bg);color:var(--ed-fg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.ed-top{display:flex;align-items:center;gap:10px;padding:8px max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px))}
+.ed-title{flex:1;min-width:0;text-align:center}
+.ed-title b{display:block}
+.ed-title span{font-size:12px;opacity:.75;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.editor .btn{background:var(--ed-panel);border-color:var(--ed-line);color:var(--ed-fg)}
+.editor .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.editor .btn.danger{color:#FF8A8A}
+.ed-stage{flex:1;min-height:0;position:relative}
+#edCv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.ed-bottom{background:var(--ed-panel);border-top:1px solid var(--ed-line);padding:10px max(12px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:10px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--ed-bg);border-radius:9px;padding:3px;gap:3px}
+.seg button{min-height:40px;border:0;border-radius:7px;background:none;color:var(--ed-fg);font-weight:600;cursor:pointer;opacity:.7}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);opacity:1}
+.ed-panel{display:flex;flex-direction:column;gap:8px;font-size:13.5px}
+.ed-panel p{margin:0;opacity:.8}
+.ed-panel input{background:var(--ed-bg);border-color:var(--ed-line);color:var(--ed-fg);flex:1}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.ed-selrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--ed-bg);border:1.5px solid var(--accent);border-radius:9px;padding:8px 10px;font-size:13.5px}
+.ed-selrow #edSelText{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.ed-selctl{margin-left:auto}
+@media (min-width:1000px){
+  .editor{display:grid;grid-template-columns:minmax(0,1fr) 420px;grid-template-rows:auto minmax(0,1fr)}
+  .ed-top{grid-column:1/-1}
+  .ed-stage{grid-column:1;grid-row:2}
+  .ed-bottom{grid-column:2;grid-row:2;border-top:0;border-left:1px solid var(--ed-line);overflow-y:auto;justify-content:flex-start}
+  .tagedit .tf{flex-basis:100%}
+  .ed-bottom .chips{flex-wrap:wrap;overflow:visible}
+}
+.tagedit{display:flex;flex-wrap:wrap;align-items:center;gap:8px;width:100%;padding-top:6px;border-top:1px solid var(--ed-line)}
+.tagedit .tf{display:flex;align-items:center;gap:6px;font-size:13px;flex:1 1 120px;min-width:0}
+.tagedit .tf.sm{flex:0 1 96px}
+.tagedit .tf span{opacity:.75;flex:none}
+.tagedit input{min-height:36px;border:1px solid var(--ed-line);border-radius:7px;background:var(--ed-panel);color:var(--ed-fg);padding:0 8px;font-size:14px;width:100%;min-width:0}
+.sizectl{display:inline-flex;align-items:center;gap:6px}
+.sizectl b{min-width:52px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px}
+.stylebar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-size:13px}
+.stylettl{font-weight:700;opacity:.85}
+.swatches{display:flex;gap:6px}
+.swatches button{width:30px;height:30px;border-radius:50%;border:2px solid var(--ed-line);cursor:pointer;padding:0}
+.swatches button[aria-pressed="true"]{outline:3px solid var(--accent);outline-offset:2px}
+.seg2{display:inline-flex;background:var(--ed-bg);border-radius:8px;padding:2px;gap:2px}
+.seg2 button{min-height:32px;padding:0 10px;border:0;border-radius:6px;background:none;color:var(--ed-fg);font-weight:600;cursor:pointer;opacity:.7}
+.seg2 button[aria-pressed="true"]{background:var(--ed-panel);opacity:1;box-shadow:inset 0 0 0 1.5px var(--accent)}
+.chip{flex:none;border:2px solid transparent;border-radius:6px;padding:4px 10px;font-weight:700;font-size:13px;cursor:pointer;line-height:1.25;text-align:center}
+.chip.in{background:#FFF200;color:#111}
+.chip.out{background:#22A3F5;color:#fff}
+.chip[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--ed-bg) inset}
+.chip small{display:block;font-weight:600}
+.dropzone{position:fixed;inset:0;z-index:70;background:rgba(27,90,203,.18);display:flex;align-items:center;justify-content:center;pointer-events:none;padding:24px}
+.dropzone>div{background:var(--surface);color:var(--fg);border:2px dashed var(--accent);border-radius:14px;padding:24px 28px;font-weight:700;font-size:17px;text-align:center;display:flex;flex-direction:column;gap:6px}
+.dropzone small{font-weight:400;font-size:13px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:9px;font-size:14px;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.25)}
+@media (prefers-reduced-motion:no-preference){.btn,.tab,.chip{transition:background-color .15s,border-color .15s,color .15s}}
+</style>
+</head>
+<body>
+
+<div class="app" id="app" data-view="map">
+  <header class="top gut">
+    <div class="brand"><span class="mark" aria-hidden="true">확정</span><div><b>지적확정측량 현장지원</b><span class="sub" id="projLabel">경계 데이터 없음</span></div></div>
+    <button class="btn" id="btnInstall" type="button" hidden>앱 설치</button><button class="btn" id="btnData" type="button">경계 데이터</button>
+  </header>
+  <div class="banner gut" id="sampleBanner" hidden><span><b>예시 데이터</b>로 열려 있습니다. 실제 성과파일(DXF·SHP)을 불러오면 예시는 지워집니다.</span><button class="btn sm" type="button" id="btnData2">파일 불러오기</button></div>
+  <nav class="tabs gut" role="tablist">
+    <button class="tab" role="tab" data-v="map" aria-selected="true">지도</button>
+    <button class="tab" role="tab" data-v="photos" aria-selected="false">현장사진 <span id="photoCount"></span></button>
+    <button class="tab" role="tab" data-v="report" aria-selected="false">보고서 출력</button>
+  </nav>
+  <main class="main">
+    <section class="view" id="v-map" aria-label="지도">
+      <div class="mapwrap">
+        <canvas id="map" aria-label="사업지구 지적도와 촬영 위치"></canvas>
+        <div class="mapbar">
+          <div class="legend"><span><i></i>필지 경계</span><span><i class="d"></i>지구계</span><span id="mapStat"></span></div>
+          <div class="row"><button class="btn sm" id="btnGps" type="button" aria-pressed="false">내 위치</button><button class="btn sm" id="btnVw" type="button" aria-pressed="false" hidden>위성</button><button class="btn sm" id="btnOrtho" type="button" aria-pressed="true" hidden>항공사진</button><button class="btn sm" id="btnFit" type="button">전체 보기</button></div>
+        </div>
+        <div class="gpsinfo" id="gpsInfo" hidden>
+          <div class="gpsline" id="gpsCoord"></div>
+          <div class="gpsline muted" id="gpsWhere"></div>
+          <div class="row"><button class="btn sm" type="button" id="gpsFollow" aria-pressed="false">따라가기</button><button class="btn sm" type="button" id="gpsCopy">좌표 복사</button><button class="btn sm" type="button" id="gpsOff">끄기</button></div>
+        </div>
+        <div class="setloc" id="setlocBar" hidden><span id="setlocText">사진 위치를 지도에서 누르세요</span><button type="button" id="setlocCancel">취소</button></div>
+        <div class="selcard" id="selCard" hidden>
+          <canvas id="selThumb" width="168" height="126"></canvas>
+          <div class="info">
+            <div class="row"><span class="no" id="selNo">1</span><span id="selPill"></span></div>
+            <div class="coord" id="selCoord"></div>
+            <div class="row"><button class="btn sm primary" type="button" id="selEdit">경계선·라벨</button><button class="btn sm" type="button" id="selLoc">위치 지정</button></div>
+          </div>
+        </div>
+        <div class="fabs">
+          <span class="btn fab filebtn">앨범에서<input type="file" data-kind="album" accept="image/*" multiple aria-label="앨범에서 사진 선택"></span>
+          <span class="btn primary fab cam filebtn">사진 촬영<input type="file" data-kind="cam" accept="image/*" capture="environment" aria-label="사진 촬영"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="v-photos" aria-label="현장사진">
+      <div class="panel gut">
+        <div class="phead"><h2>현장사진</h2><div class="row"><span class="btn sm filebtn">앨범에서<input type="file" data-kind="album" accept="image/*" multiple aria-label="앨범에서 사진 선택"></span><span class="btn sm primary filebtn">사진 촬영<input type="file" data-kind="cam" accept="image/*" capture="environment" aria-label="사진 촬영"></span></div></div>
+        <p class="muted" style="margin:0">PC에서는 사진·도면 파일을 화면에 끌어다 놓거나 붙여넣기(Ctrl+V)로도 불러올 수 있습니다. 번호 순서가 보고서 붙임 사진 순서입니다. 재시공 전후 사진은 ‘당초·수정’으로 지정해 짝을 지으세요.</p>
+        <div class="list" id="photoList"></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-report" aria-label="보고서 출력">
+      <div class="panel gut">
+        <div class="sec">
+          <h3>보고서 정보</h3>
+          <div class="field"><label for="rpName">사업지구명</label><input id="rpName" placeholder="예: 00일반산업단지"></div>
+          <div class="grid2">
+            <div class="field"><label for="rpDate">검사일</label><input id="rpDate" placeholder="예: 2026. 10. 16.(금)"></div>
+            <div class="field"><label for="rpWho">검사자</label><input id="rpWho" placeholder="예: 시설6급 000"></div>
+          </div>
+        </div>
+        <div class="sec">
+          <h3>출력 구성</h3>
+          <label class="opt"><input type="checkbox" id="opMap" checked> 촬영 위치도 (붙임 2 형식)</label>
+          <label class="opt"><input type="checkbox" id="opPairs" checked> 현지조치사항 당초·수정 비교</label>
+          <div class="field"><label for="opPer">현지사진 한 장당 사진 수</label>
+            <select id="opPer"><option value="6">6장 (2×3)</option><option value="10" selected>10장 (2×5, 결과보고서 형식)</option><option value="4">4장 (2×2)</option></select></div>
+        </div>
+        <div class="sec">
+          <h3>출력 전 점검</h3>
+          <ul class="checks" id="checks"></ul>
+        </div>
+        <div class="sec">
+          <h3>파일로 저장</h3>
+          <div class="row">
+            <button class="btn primary" type="button" id="btnPPT" data-label="PPT (.pptx)">PPT (.pptx)</button>
+            <button class="btn primary" type="button" id="btnPDF" data-label="PDF">PDF</button>
+            <button class="btn primary" type="button" id="btnDOCX" data-label="워드 (.docx)">워드 (.docx)</button>
+            <button class="btn" type="button" id="btnZip" data-label="사진 묶음 (.zip)">사진 묶음 (.zip)</button>
+          </div>
+          <p class="muted" style="margin:0">한글(.hwp)은 이 화면에서 직접 저장할 수 없습니다. 워드 파일을 한글에서 열고 ‘다른 이름으로 저장’에서 HWP를 고르면 표·사진이 그대로 옮겨집니다. PDF는 쪽마다 그림으로 저장되어 글자 선택은 되지 않습니다.</p>
+        </div>
+        <p class="muted" style="margin:0">PPT는 A4 세로, 흰색·파란색 기준입니다. 출력물은 AI가 만든 초안이므로 경계선 위치와 지번·지목을 담당자가 최종 확인해 주세요.</p>
+        <div class="sec">
+          <h3>작업 관리</h3>
+          <p class="muted" style="margin:0" id="storeNote"></p>
+          <p class="muted" style="margin:0">버전 2026.11.08 · 개인용 독립 버전</p>
+          <div class="row"><button class="btn danger sm" type="button" id="btnReset">새 작업 시작 (전체 삭제)</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+
+<div class="modal" id="dataModal" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="dataTitle">
+    <div class="sheet-head"><h2 id="dataTitle">경계 데이터</h2><button class="btn sm" type="button" data-close>닫기</button></div>
+    <p class="muted" style="margin:0">확정측량 성과의 <b>DXF</b> 또는 <b>SHP</b>(.shp·.dbf·.prj 함께 선택, 또는 zip 묶음)를 선택하세요. 파일은 이 기기 안에서만 처리되며 외부로 전송되지 않습니다.</p>
+    <span class="btn primary filebtn">파일 선택<input type="file" data-kind="data" accept=".dxf,.shp,.dbf,.prj,.cpg,.zip" multiple aria-label="경계 데이터 파일 선택"></span>
+    <div id="dataSummary"></div>
+    <div class="field"><label for="selCrs">좌표계</label><select id="selCrs"></select><small id="crsNote"></small></div>
+    <div class="field"><span>좌표 순서</span><div class="row"><button class="btn sm" type="button" id="btnSwap">X·Y 바꾸기</button><small id="swapNote"></small></div></div>
+    <div class="grid2" id="shpFields">
+      <div class="field"><label for="selJibun">지번 항목</label><select id="selJibun"></select></div>
+      <div class="field"><label for="selJimok">지목 항목</label><select id="selJimok"></select></div>
+    </div>
+    <div class="field"><label for="selDistrict">지구계(사업지구 경계)</label><select id="selDistrict"></select><small>지구 내·외 판정에 사용합니다.</small></div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:4px 0">
+    <h2 style="font-size:16px">브이월드 항공사진 (온라인)</h2>
+    <p class="muted" style="margin:0">브이월드(vworld.kr)에서 발급받은 인증키를 넣으면 지도 배경에 항공사진이 깔립니다. 인증키를 발급할 때 이 앱 주소(예: 아이디.github.io)를 서비스 URL로 등록해야 합니다. 인증키는 이 기기에만 저장되며, 인터넷이 될 때만 보입니다.</p>
+    <div class="field"><label for="vwKey">인증키</label><input id="vwKey" autocomplete="off" spellcheck="false" placeholder="브이월드 인증키 붙여넣기"></div>
+    <label class="opt"><input type="checkbox" id="vwOn"> 지도 배경에 항공사진 표시</label>
+    <hr style="border:0;border-top:1px solid var(--line);margin:4px 0">
+    <h2 style="font-size:16px">항공사진 파일(정사영상) 중첩</h2>
+    <p class="muted" style="margin:0">좌표가 들어 있는 <b>GeoTIFF</b>, 또는 <b>JPG·PNG와 월드파일(.jgw·.pgw·.tfw)</b>을 함께 선택하세요. 경계 데이터와 같은 좌표계여야 합니다. 큰 파일(100MB 이상)은 사업지구 주변만 잘라서 쓰면 폰에서도 잘 열립니다.</p>
+    <span class="btn filebtn">항공사진 파일 선택<input type="file" data-kind="ortho" accept=".tif,.tiff,.jpg,.jpeg,.png,.jgw,.pgw,.tfw,.wld,.jpw" multiple aria-label="항공사진 파일 선택"></span>
+    <div id="orthoBox" class="field" hidden>
+      <small id="orInfo"></small>
+      <div class="row"><label class="opt"><input type="checkbox" id="orShow"> 지도에 표시</label><button class="btn sm danger" type="button" id="orDel">항공사진 빼기</button></div>
+      <label for="orOp">진하기</label><input type="range" id="orOp" min="20" max="100" step="5">
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="confirmModal" hidden>
+  <div class="sheet" role="alertdialog" aria-labelledby="cfText">
+    <p id="cfText" style="margin:0;font-size:15px"></p>
+    <div class="row" style="justify-content:flex-end"><button class="btn" type="button" id="cfNo">취소</button><button class="btn primary" type="button" id="cfYes">확인</button></div>
+  </div>
+</div>
+
+<div class="editor" id="editor" hidden>
+  <div class="ed-top">
+    <button class="btn" type="button" id="edClose">완료</button>
+    <div class="ed-title"><b id="edTitle">사진</b><span id="edLoc"></span></div>
+    <button class="btn" type="button" id="edSave">JPG 저장</button>
+  </div>
+  <div class="ed-stage"><canvas id="edCv" aria-label="현장사진 편집 화면"></canvas></div>
+  <div class="ed-bottom">
+    <div class="ed-selrow" id="edSelRow" hidden>
+      <span id="edSelText"></span>
+      <div class="row ed-selctl">
+        <span class="sizectl" id="edSizeCtl"><button class="btn sm" type="button" id="edSmaller" aria-label="라벨 작게">가−</button><b id="edSizeVal">100%</b><button class="btn sm" type="button" id="edBigger" aria-label="라벨 크게">가+</button></span>
+        <button class="btn sm danger" type="button" id="edDel">삭제</button><button class="btn sm" type="button" id="edDesel">선택 해제</button>
+      </div>
+      <div class="tagedit" id="edTagEdit" hidden>
+        <span class="seg2"><button type="button" data-tk="in">지구 내</button><button type="button" data-tk="out">지구 외</button></span>
+        <label class="tf"><span>윗줄</span><input id="tgL1" autocomplete="off" placeholder="지구 내"></label>
+        <label class="tf"><span>지번</span><input id="tgJ" autocomplete="off" placeholder="예: 557-1"></label>
+        <label class="tf sm"><span>지목</span><input id="tgM" autocomplete="off" placeholder="장"></label>
+      </div>
+    </div>
+    <div class="stylebar" id="edStyle">
+      <span class="stylettl" id="edStyleTtl">새 선</span>
+      <div class="swatches" id="edColors" role="group" aria-label="선 색"></div>
+      <span class="sizectl"><button class="btn sm" type="button" data-lw="-1" aria-label="선 가늘게">−</button><b id="edLwVal">두께 3</b><button class="btn sm" type="button" data-lw="1" aria-label="선 굵게">+</button></span>
+      <span class="seg2"><button type="button" data-dash="0">실선</button><button type="button" data-dash="1">점선</button></span>
+      <span class="seg2"><button type="button" data-curve="0">직선</button><button type="button" data-curve="1">곡선</button></span>
+    </div>
+    <div class="seg"><button type="button" data-tool="line" aria-pressed="true">경계선</button><button type="button" data-tool="label" aria-pressed="false">라벨</button><button type="button" data-tool="select" aria-pressed="false">선택·이동</button></div>
+    <div class="ed-panel" id="edPLine">
+      <p>경계점표지를 따라 점을 차례로 누르면 선이 이어집니다. 곡선은 점 3개 이상을 지나는 부드러운 선이 됩니다. 끌면 화면 이동, 두 손가락으로 확대합니다.</p>
+      <div class="row"><button class="btn" type="button" data-undo>되돌리기</button><button class="btn primary" type="button" id="edDone">선 완료</button></div>
+    </div>
+    <div class="ed-panel" id="edPLabel" hidden>
+      <p id="edChipHint">라벨을 고른 뒤 사진에서 놓을 곳을 누르세요.</p>
+      <div class="chips" id="edChips"></div>
+      <div class="row"><input id="edSearch" placeholder="지번 검색 (예: 557)" inputmode="numeric"><input id="edCustom" placeholder="직접 입력"><button class="btn sm" type="button" id="edCustomAdd">추가</button></div>
+      <div class="row"><span>새 라벨 크기</span><span class="sizectl"><button class="btn sm" type="button" data-ns="-1" aria-label="새 라벨 작게">가−</button><b id="edNewVal">100%</b><button class="btn sm" type="button" data-ns="1" aria-label="새 라벨 크게">가+</button></span><button class="btn sm" type="button" id="edApplyAll">이 사진 라벨 모두 같은 크기로</button></div>
+      <p>놓은 라벨을 누르면 선택되어 글자(지구 내·외, 지번, 지목)와 크기를 고치거나 지울 수 있습니다.</p>
+    </div>
+    <div class="ed-panel" id="edPSel" hidden>
+      <p>선을 누른 채 끌면 선 전체가 옮겨지고, 양 끝점을 끌면 끝점만 옮겨집니다. 라벨도 끌어서 옮깁니다. 선을 고르면 색·두께·점선·곡선을 바꿀 수 있습니다.</p>
+      <div class="row"><button class="btn" type="button" data-undo>되돌리기</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="dropzone" id="dropzone" hidden><div>여기에 놓으면 불러옵니다<small>사진(JPG·PNG) · 경계 데이터(DXF·SHP·zip) · 정사영상(TIF·월드파일)</small></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/proj4@2.9.2/dist/proj4.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const FONT = '"IBM Plex Sans KR","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+
+/* ---------- 좌표계 ---------- */
+const CRS = {
+  '5186': {name:'GRS80 중부원점 (EPSG:5186)', def:'+proj=tmerc +lat_0=38 +lon_0=127 +k=1 +x_0=200000 +y_0=600000 +ellps=GRS80 +units=m +no_defs'},
+  '5185': {name:'GRS80 서부원점 (EPSG:5185)', def:'+proj=tmerc +lat_0=38 +lon_0=125 +k=1 +x_0=200000 +y_0=600000 +ellps=GRS80 +units=m +no_defs'},
+  '5187': {name:'GRS80 동부원점 (EPSG:5187)', def:'+proj=tmerc +lat_0=38 +lon_0=129 +k=1 +x_0=200000 +y_0=600000 +ellps=GRS80 +units=m +no_defs'},
+  '5181': {name:'GRS80 중부원점 가산 50만 (EPSG:5181)', def:'+proj=tmerc +lat_0=38 +lon_0=127 +k=1 +x_0=200000 +y_0=500000 +ellps=GRS80 +units=m +no_defs'},
+  '5174': {name:'Bessel 중부원점 구좌표 (EPSG:5174)', def:'+proj=tmerc +lat_0=38 +lon_0=127.0028902777778 +k=1 +x_0=200000 +y_0=500000 +ellps=bessel +units=m +no_defs +towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43'}
+};
+function llToLocal(ll){
+  if(!ll || !window.proj4) return null;
+  try{ const r = proj4('WGS84', CRS[state.project.crs].def, ll); return (isFinite(r[0])&&isFinite(r[1])) ? r : null; }catch(e){ return null; }
+}
+
+/* ---------- 지목 ---------- */
+const JIMOK = {'과수원':'과','목장용지':'목','임야':'임','광천지':'광','염전':'염','공장용지':'장','학교용지':'학','주차장':'차','주유소용지':'주','창고용지':'창','도로':'도','철도용지':'철','제방':'제','하천':'천','구거':'구','유지':'유','양어장':'양','수도용지':'수','공원':'공','체육용지':'체','유원지':'원','종교용지':'종','사적지':'사','묘지':'묘','잡종지':'잡','전':'전','답':'답','대':'대'};
+const CODES = new Set('전답과목임광염대장학차주창도철제천구유양수공체원종사묘잡'.split(''));
+function jimokCode(s){
+  s = String(s||'').trim(); if(!s) return '';
+  if(JIMOK[s]) return JIMOK[s];
+  if(s.length===1 && CODES.has(s)) return s;
+  for(const k of Object.keys(JIMOK)) if(k.length>1 && s.startsWith(k)) return JIMOK[k];
+  return s.length<=2 ? s : s[0];
+}
+function parseJibun(t, strict){
+  t = String(t||'').trim();
+  if(/^\d{19}$/.test(t)){ const bon=+t.slice(11,15), bu=+t.slice(15,19); return {jibun:(t[10]==='2'?'산':'')+(bu?`${bon}-${bu}`:String(bon)), jimok:''}; }
+  const re = strict ? /^(산\s*)?(\d{1,5}(?:-\d{1,4})?)\s*([가-힣]{1,5})?$/ : /(산\s*)?(\d{1,5}(?:-\d{1,4})?)\s*([가-힣]{1,5})?/;
+  const m = t.match(re); if(!m) return null;
+  return {jibun:(m[1]?'산':'')+m[2], jimok: m[3]? jimokCode(m[3]) : ''};
+}
+
+/* ---------- 상태 ---------- */
+const state = {
+  project: {name:'', date:'', inspector:'', crs:'5186', crsGuessed:true, swapped:false, source:'', kind:'', isSample:false,
+    features:[], texts:[], fields:[], fieldJibun:'', fieldJimok:'', layers:[], districtLayer:'__auto', opt:{map:true,pairs:true,per:10}},
+  photos: [], active:null, view:'map', mapMode:'pan'
+};
+const blobs = new Map(), imgs = new Map();
+let cache = {closed:[], D:[], parcels:[]};
+
+/* ---------- 기하 ---------- */
+function ringArea(r){ let a=0; for(let i=0,j=r.length-1;i<r.length;j=i++) a+=(r[j][0]+r[i][0])*(r[j][1]-r[i][1]); return Math.abs(a/2); }
+function fArea(f){ if(f._ar==null) f._ar=f.rings.reduce((s,r)=>s+ringArea(r),0); return f._ar; }
+function fBox(f){ if(!f._bb){ let a=[Infinity,Infinity,-Infinity,-Infinity]; for(const r of f.rings) for(const p of r){ if(p[0]<a[0])a[0]=p[0]; if(p[1]<a[1])a[1]=p[1]; if(p[0]>a[2])a[2]=p[0]; if(p[1]>a[3])a[3]=p[1]; } f._bb=a; } return f._bb; }
+function pip(p,f){
+  const b=fBox(f); if(p[0]<b[0]||p[0]>b[2]||p[1]<b[1]||p[1]>b[3]) return false;
+  let ins=false;
+  for(const r of f.rings) for(let i=0,j=r.length-1;i<r.length;j=i++){
+    const xi=r[i][0],yi=r[i][1],xj=r[j][0],yj=r[j][1];
+    if(((yi>p[1])!==(yj>p[1])) && (p[0] < (xj-xi)*(p[1]-yi)/(yj-yi)+xi)) ins=!ins;
+  }
+  return ins;
+}
+function segDist(p,a,b){ const dx=b[0]-a[0],dy=b[1]-a[1]; const l=dx*dx+dy*dy; let t=l?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy); }
+function fDist(p,f){
+  if(f.closed && pip(p,f)) return 0;
+  let d=Infinity;
+  for(const r of f.rings){ for(let i=0;i<r.length-1;i++) d=Math.min(d,segDist(p,r[i],r[i+1])); if(f.closed&&r.length>2) d=Math.min(d,segDist(p,r[r.length-1],r[0])); }
+  return d;
+}
+function labelPt(f){
+  if(f._lp) return f._lp;
+  const b=fBox(f); let c=[(b[0]+b[2])/2,(b[1]+b[3])/2];
+  if(f.closed && !pip(c,f)){
+    const r=f.rings.reduce((m,x)=>ringArea(x)>ringArea(m)?x:m, f.rings[0]);
+    let best=null, bd=-1;
+    for(let k=1;k<=9;k++){ const y=b[1]+(b[3]-b[1])*k/10; const xs=[];
+      for(let i=0,j=r.length-1;i<r.length;j=i++){ const yi=r[i][1],yj=r[j][1]; if((yi>y)!==(yj>y)) xs.push(r[i][0]+(y-yi)*(r[j][0]-r[i][0])/(yj-yi)); }
+      xs.sort((a,z)=>a-z); for(let i=0;i+1<xs.length;i+=2){ const w=xs[i+1]-xs[i]; if(w>bd){bd=w; best=[(xs[i]+xs[i+1])/2,y];} } }
+    if(best) c=best;
+  }
+  return f._lp=c;
+}
+function clearCaches(){ for(const f of state.project.features){ delete f._ar; delete f._bb; delete f._lp; } }
+
+function derive(){
+  const P=state.project; clearCaches();
+  for(const f of P.features){ f.jibun=''; f.jimok=''; f.isD=false; }
+  if(P.kind==='shp'){
+    for(const f of P.features){ const a=f.attrs||{};
+      const pj = P.fieldJibun ? parseJibun(a[P.fieldJibun]) : null;
+      if(pj){ f.jibun=pj.jibun; f.jimok=pj.jimok; }
+      if(P.fieldJimok && a[P.fieldJimok]) f.jimok=jimokCode(a[P.fieldJimok]);
+    }
+  }
+  const closed=P.features.filter(f=>f.closed && f.rings.length && f.rings[0].length>2);
+  let D=[];
+  if(P.districtLayer==='__none') D=[];
+  else if(P.districtLayer && P.districtLayer!=='__auto') D=closed.filter(f=>f.layer===P.districtLayer);
+  else {
+    const frameRe=/도곽|도면|TITLE|FRAME|BORDER|테두리|범례|LEGEND/i; const named=closed.filter(f=>/지구|구역|사업|BOUND|BND|DISTRICT/i.test(f.layer||'') && !frameRe.test(f.layer||''));
+    if(named.length && named.length<closed.length) D=named;
+    else if(closed.length>2){
+      const cand=closed.filter(f=>!frameRe.test(f.layer||'')); const big=(cand.length?cand:closed).reduce((m,f)=>fArea(f)>fArea(m)?f:m);
+      const others=closed.filter(f=>f!==big);
+      const n=others.filter(f=>pip(labelPt(f),big)).length;
+      if(n>=others.length*0.6) D=[big];
+    }
+  }
+  D.forEach(f=>f.isD=true);
+  const parcels=closed.filter(f=>!f.isD);
+  if(P.texts && P.texts.length){
+    for(const t of P.texts){ const pj=parseJibun(t.text,true); if(!pj) continue;
+      let best=null, ba=Infinity;
+      for(const f of parcels){ if(!pip(t.p,f)) continue; const a=fArea(f); if(a<ba){ba=a;best=f;} }
+      if(best && !best.jibun){ best.jibun=pj.jibun; best.jimok=pj.jimok; }
+    }
+  }
+  cache={closed, D, parcels, bounds:null, outliers:0};
+  const fin=b=>b.every(Number.isFinite); const boxes=P.features.map(fBox).filter(fin); for(const t of P.texts){ const b=[t.p[0],t.p[1],t.p[0],t.p[1]]; if(fin(b)) boxes.push(b); }
+  if(boxes.length){
+    const cx=boxes.map(b=>(b[0]+b[2])/2).sort((a,b)=>a-b), cy=boxes.map(b=>(b[1]+b[3])/2).sort((a,b)=>a-b); const mx=cx[cx.length>>1], my=cy[cy.length>>1];
+    const near=b=>Math.abs((b[0]+b[2])/2-mx)<20000 && Math.abs((b[1]+b[3])/2-my)<20000 && (b[2]-b[0])<60000 && (b[3]-b[1])<60000;
+    cache.outliers=boxes.filter(b=>!near(b)).length;
+    const src=D.length? D.map(fBox).filter(fin) : boxes; let keep=src.filter(near); if(!keep.length) keep=src;
+    cache.bounds=keep.reduce((a,b)=>[Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[2],b[2]),Math.max(a[3],b[3])],[Infinity,Infinity,-Infinity,-Infinity]);
+  }
+}
+function inDistrict(p){
+  if(cache.D.length) return cache.D.some(f=>pip(p,f));
+  if(cache.parcels.length) return cache.parcels.some(f=>pip(p,f));
+  return null;
+}
+function parcelIn(f){ return cache.D.length ? cache.D.some(d=>pip(labelPt(f),d)) : true; }
+function nearby(p, r=60){
+  const out=[];
+  for(const f of cache.parcels){ const b=fBox(f); if(p[0]<b[0]-r||p[0]>b[2]+r||p[1]<b[1]-r||p[1]>b[3]+r) continue; const d=fDist(p,f); if(d<=r) out.push({f,d}); }
+  out.sort((a,b)=>a.d-b.d);
+  if(!out.length && state.project.texts.length){
+    const ts=[]; for(const t of state.project.texts){ const pj=parseJibun(t.text,true); if(!pj) continue; const d=Math.hypot(t.p[0]-p[0],t.p[1]-p[1]); if(d<=r) ts.push({t:pj,d}); }
+    ts.sort((a,b)=>a.d-b.d); return ts.slice(0,10).map(x=>({jibun:x.t.jibun,jimok:x.t.jimok,inside:null}));
+  }
+  return out.slice(0,10).map(x=>({jibun:x.f.jibun, jimok:x.f.jimok, inside:parcelIn(x.f), f:x.f}));
+}
+function dataBounds(withPhotos){
+  let b = cache.bounds ? cache.bounds.slice() : (state.project.ortho ? state.project.ortho.bbox.slice() : null);
+  if(withPhotos) for(const ph of state.photos){ const p=ph.loc; if(!p) continue;
+    if(b && (p[0]<b[0]-2000||p[0]>b[2]+2000||p[1]<b[1]-2000||p[1]>b[3]+2000)) continue;
+    b = b ? [Math.min(b[0],p[0]),Math.min(b[1],p[1]),Math.max(b[2],p[0]),Math.max(b[3],p[1])] : [p[0],p[1],p[0],p[1]]; }
+  return b;
+}
+
+/* ---------- 파일 해석: DXF ---------- */
+function decodeText(buf){
+  try{ return new TextDecoder('utf-8',{fatal:true}).decode(buf); }catch(e){}
+  try{ return new TextDecoder('euc-kr').decode(buf); }catch(e){ return new TextDecoder().decode(buf); }
+}
+function cleanText(s){
+  return s.replace(/\\U\+([0-9A-Fa-f]{4})/g,(m,h)=>String.fromCharCode(parseInt(h,16)))
+          .replace(/\\P/gi,' ').replace(/\\[A-Za-z][^;\\]*;/g,'').replace(/[{}]/g,'').replace(/%%[cdpCDP]/g,'').trim();
+}
+function parseDXF(text){
+  if(/^AutoCAD Binary DXF/.test(text)) throw new Error('바이너리 DXF는 읽을 수 없습니다. CAD에서 ASCII DXF로 다시 저장해 주세요');
+  const L=text.split(/\r\n|\r|\n/);
+  let sec=null, cur=null, poly=null, blk=null; const blocks={}, model=[], counts={};
+  const emit=e=>{ if(sec==='BLOCKS'){ if(blk) blk.ents.push(e); } else if(sec==='ENTITIES') model.push(e); };
+  const flush=()=>{ if(!cur) return; const t=cur.type;
+    if(sec==='ENTITIES' && t!=='VERTEX' && t!=='SEQEND') counts[t]=(counts[t]||0)+1;
+    if(t==='POLYLINE') poly=cur;
+    else if(t==='VERTEX'){ if(poly && cur.x!=null) poly.pts.push([cur.x,cur.y]); }
+    else if(t==='SEQEND'){ if(poly) emit(poly); poly=null; }
+    else if(t==='BLOCK'){ blk={name:cur.name, base:[cur.x||0,cur.y||0], ents:[]}; }
+    else if(t==='ENDBLK'){ if(blk) blocks[blk.name]=blk; blk=null; }
+    else emit(cur);
+    cur=null; };
+  for(let i=0;i+1<L.length;i+=2){
+    const c=parseInt(L[i].trim(),10); const v=L[i+1]; const vt=v.trim();
+    if(c===0 && vt==='SECTION'){ flush(); sec = parseInt((L[i+2]||'').trim(),10)===2 ? (L[i+3]||'').trim() : null; i+=2; continue; }
+    if(c===0 && vt==='ENDSEC'){ flush(); if(poly){ emit(poly); poly=null; } sec=null; continue; }
+    if(sec!=='ENTITIES' && sec!=='BLOCKS') continue;
+    if(c===0){ flush(); cur={type:vt, layer:'0', pts:[], flags:0, text:'', name:'', x:null,y:null,x2:null,y2:null, sx:1, sy:1, rot:0}; continue; }
+    if(!cur) continue;
+    switch(c){
+      case 8: cur.layer=cleanText(v)||'0'; break;
+      case 2: cur.name=vt; break;
+      case 70: cur.flags=parseInt(vt,10)||0; break;
+      case 10: if(cur.type==='LWPOLYLINE') cur.pts.push([parseFloat(vt),null]); else cur.x=parseFloat(vt); break;
+      case 20: if(cur.type==='LWPOLYLINE'){ const p=cur.pts[cur.pts.length-1]; if(p) p[1]=parseFloat(vt); } else cur.y=parseFloat(vt); break;
+      case 11: cur.x2=parseFloat(vt); break;
+      case 21: cur.y2=parseFloat(vt); break;
+      case 41: if(cur.type==='INSERT') cur.sx=parseFloat(vt)||1; break;
+      case 42: if(cur.type==='INSERT') cur.sy=parseFloat(vt)||1; break;
+      case 50: cur.rot=parseFloat(vt)||0; break;
+      case 1: cur.text+=v; break;
+      case 3: if(cur.type==='MTEXT') cur.text+=v; break;
+    }
+  }
+  flush(); if(poly) emit(poly);
+  const feats=[], texts=[], layers=new Map();
+  const addF=(pts,flags,layer)=>{ pts=pts.filter(p=>p[1]!=null && isFinite(p[0]) && isFinite(p[1])); if(pts.length<2) return; let closed=!!(flags&1);
+    const a=pts[0], z=pts[pts.length-1]; if(pts.length>2 && Math.hypot(a[0]-z[0],a[1]-z[1])<1e-6){ closed=true; pts=pts.slice(0,-1); }
+    feats.push({id:feats.length+1, rings:[pts], closed:closed&&pts.length>2, layer, attrs:{}}); layers.set(layer,(layers.get(layer)||0)+1); };
+  const walk=(ents,T,depth,lo)=>{ for(const e of ents){ const lay=(e.layer==='0'&&lo)?lo:e.layer;
+    if(e.type==='LWPOLYLINE'||e.type==='POLYLINE') addF(e.pts.filter(p=>p[1]!=null).map(T), e.flags, lay);
+    else if(e.type==='LINE'){ if(e.x!=null&&e.x2!=null) addF([T([e.x,e.y]),T([e.x2,e.y2])],0,lay); }
+    else if((e.type==='TEXT'||e.type==='MTEXT') && e.x!=null && e.text){ const s=cleanText(e.text); if(s) texts.push({p:T([e.x,e.y]), text:s, layer:lay}); }
+    else if(e.type==='INSERT' && depth<6){ const b=blocks[e.name]; if(!b) continue;
+      const r=(e.rot||0)*Math.PI/180, cs=Math.cos(r), sn=Math.sin(r), sx=e.sx||1, sy=e.sy||1, ix=e.x||0, iy=e.y||0;
+      walk(b.ents, p=>{ const x=(p[0]-b.base[0])*sx, y=(p[1]-b.base[1])*sy; return T([ix+x*cs-y*sn, iy+x*sn+y*cs]); }, depth+1, lay); } } };
+  walk(model, p=>p, 0, null);
+  return {features:feats, texts, counts, layers:[...layers.entries()].map(([name,n])=>({name,n}))};
+}
+
+/* ---------- 파일 해석: SHP / DBF ---------- */
+function parseSHP(buf){
+  const v=new DataView(buf); const out=[]; let off=100;
+  while(off+8<=v.byteLength){
+    const len=v.getInt32(off+4,false)*2; const st=off+8; if(st+4>v.byteLength) break;
+    const t=v.getInt32(st,true); let g=null;
+    if([3,5,13,15,23,25].includes(t)){
+      const np=v.getInt32(st+36,true), npt=v.getInt32(st+40,true); const parts=[];
+      for(let k=0;k<np;k++) parts.push(v.getInt32(st+44+k*4,true));
+      const p0=st+44+np*4; const pts=[];
+      for(let k=0;k<npt;k++) pts.push([v.getFloat64(p0+k*16,true), v.getFloat64(p0+k*16+8,true)]);
+      const rings=parts.map((s,k)=>pts.slice(s,k+1<np?parts[k+1]:npt));
+      const closed=[5,15,25].includes(t);
+      if(closed) rings.forEach((r,i)=>{ if(r.length>3){ const a=r[0],z=r[r.length-1]; if(a[0]===z[0]&&a[1]===z[1]) rings[i]=r.slice(0,-1); } });
+      g={rings, closed};
+    }
+    out.push(g); off=st+len;
+  }
+  return out;
+}
+function parseDBF(buf, enc){
+  const v=new DataView(buf); const n=v.getUint32(4,true), hl=v.getUint16(8,true), rl=v.getUint16(10,true);
+  const dec=new TextDecoder(enc); const fields=[]; let o=32;
+  while(o+32<=hl && v.getUint8(o)!==0x0D){ const nb=new Uint8Array(buf,o,11); let e=nb.indexOf(0); if(e<0)e=11; fields.push({name:dec.decode(nb.slice(0,e)).trim(), len:v.getUint8(o+16)}); o+=32; }
+  const rows=[];
+  for(let r=0;r<n;r++){ let p=hl+r*rl+1; if(p+rl-1>buf.byteLength) break; const row={};
+    for(const f of fields){ row[f.name]=dec.decode(new Uint8Array(buf,p,f.len)).trim(); p+=f.len; } rows.push(row); }
+  return {fields:fields.map(f=>f.name), rows};
+}
+function dbfEncoding(buf, cpg){
+  if(cpg){ const c=cpg.trim().toLowerCase(); if(c.includes('utf')) return 'utf-8'; if(c.includes('949')||c.includes('euc')||c.includes('ks')) return 'euc-kr'; }
+  try{ new TextDecoder('utf-8',{fatal:true}).decode(buf); return 'utf-8'; }catch(e){ return 'euc-kr'; }
+}
+function crsFromPrj(prj){
+  if(!prj) return null; const s=prj.replace(/\s/g,'');
+  const cm=(s.match(/Central_Meridian",?([\d.]+)/i)||[])[1]; const fn=(s.match(/False_Northing",?([\d.]+)/i)||[])[1];
+  const bessel=/bessel/i.test(s);
+  if(cm){ const c=parseFloat(cm), n=parseFloat(fn||'0');
+    if(bessel && Math.abs(c-127.00289)<0.001) return '5174';
+    if(Math.abs(c-127)<0.01) return n>=550000?'5186':'5181';
+    if(Math.abs(c-125)<0.01) return '5185';
+    if(Math.abs(c-129)<0.01) return '5187'; }
+  return null;
+}
+
+/* ---------- 데이터 불러오기 ---------- */
+async function loadDataFiles(fileList){
+  let files=[...fileList].map(f=>({name:f.name, get:()=>f.arrayBuffer()}));
+  const zips=files.filter(f=>/\.zip$/i.test(f.name));
+  if(zips.length){
+    if(!window.JSZip){ toast('zip을 풀 수 없습니다. .shp·.dbf·.prj 파일을 직접 선택해 주세요.'); return; }
+    for(const z of zips){ const zip=await JSZip.loadAsync(await z.get());
+      zip.forEach((path,entry)=>{ if(!entry.dir) files.push({name:path.split('/').pop(), get:()=>entry.async('arraybuffer')}); }); }
+    files=files.filter(f=>!/\.zip$/i.test(f.name));
+  }
+  const dxf=files.find(f=>/\.dxf$/i.test(f.name));
+  const shp=files.find(f=>/\.shp$/i.test(f.name));
+  if(!dxf && !shp){ toast('DXF 또는 SHP 파일이 없습니다. .dat는 DXF나 SHP로 변환해 주세요.'); return; }
+  const P=state.project; const prevSample=P.isSample;
+  let res;
+  if(dxf){
+    const r=parseDXF(decodeText(await dxf.get()));
+    res={kind:'dxf', source:dxf.name, features:r.features, texts:r.texts, layers:r.layers, fields:[], crs:null, counts:r.counts};
+  } else {
+    const base=shp.name.replace(/\.shp$/i,'');
+    const find=ext=>files.find(f=>f.name.toLowerCase()===(base+ext).toLowerCase()) || files.find(f=>f.name.toLowerCase().endsWith(ext));
+    const geoms=parseSHP(await shp.get());
+    let dbf=null; const dbfF=find('.dbf'), cpgF=find('.cpg'), prjF=find('.prj');
+    const cpg=cpgF? new TextDecoder().decode(await cpgF.get()) : '';
+    if(dbfF){ const b=await dbfF.get(); dbf=parseDBF(b, dbfEncoding(b.slice(0,Math.min(b.byteLength,200000)),cpg)); }
+    const prj=prjF? new TextDecoder().decode(await prjF.get()) : '';
+    const features=[]; geoms.forEach((g,i)=>{ if(g) features.push({id:i+1, rings:g.rings, closed:g.closed, layer:base, attrs:dbf?(dbf.rows[i]||{}):{}}); });
+    res={kind:'shp', source:shp.name, features, texts:[], layers:[{name:base,n:features.length}], fields:dbf?dbf.fields:[], crs:crsFromPrj(prj), counts:{}};
+  }
+  res.features=res.features.filter(f=>f.rings.length && f.rings.some(r=>r.length>=2) && f.rings.every(r=>r.every(q=>Number.isFinite(q[0])&&Number.isFinite(q[1])))); res.texts=res.texts.filter(t=>Number.isFinite(t.p[0])&&Number.isFinite(t.p[1]));
+  if(!res.features.length && !res.texts.length){ const kinds=Object.entries(res.counts||{}).map(([k,n])=>`${k} ${n}`).join(', '); toast(kinds?`표시할 수 있는 도형이 없습니다 (도면 구성: ${kinds}). 폴리라인·선·문자로 내보내 주세요.`:'도형을 찾지 못했습니다. 파일 내용을 확인해 주세요.'); return; }
+  // 좌표 순서 자동 판별 (지적 X=북, Y=동)
+  let sx=0, sy=0, n=0; const pts=[]; for(const f of res.features) for(const r of f.rings) for(const p of r){ if(pts.length<20000) pts.push(p); } for(const t of res.texts) if(pts.length<20000) pts.push(t.p);
+  const xs=pts.map(p=>p[0]).sort((a,b)=>a-b), ys=pts.map(p=>p[1]).sort((a,b)=>a-b); if(pts.length){ sx=xs[xs.length>>1]; sy=ys[ys.length>>1]; n=1; }
+  let swapped=false;
+  if(n && sx/n>300000 && sy/n<330000 && sx/n-sy/n>100000){ swapped=true; swapAll(res.features,res.texts); }
+  Object.assign(P,{kind:res.kind, source:res.source, features:res.features, texts:res.texts, layers:res.layers, fields:res.fields, counts:res.counts,
+    crs:res.crs||'5186', crsGuessed:!res.crs, swapped, districtLayer:'__auto', isSample:false});
+  if(!P.name || prevSample) P.name=res.source.replace(/\.(dxf|shp)$/i,'');
+  P.fieldJibun = pickField(res.fields, [/^jibun$/i,/지번/,/^jibn/i,/^bchk/i,/^pnu$/i,/jibun/i]);
+  P.fieldJimok = pickField(res.fields, [/^jimok$/i,/지목/,/^jimk/i,/jimok/i,/^jmk/i]);
+  if(prevSample){ state.photos=state.photos.filter(p=>!p.sample); state.active=null; }
+  for(const ph of state.photos) if(ph.ll) ph.loc=llToLocal(ph.ll);
+  derive(); renderDataSheet(); setView('map'); renderAll(); save(); requestAnimationFrame(()=>{ mapResize(); mapFit(); });
+  toast(`${res.source} 불러옴 · 도형 ${res.features.length.toLocaleString()}개 · 문자 ${res.texts.length.toLocaleString()}개`);
+}
+function pickField(fields, pats){ for(const re of pats){ const f=fields.find(x=>re.test(x)); if(f) return f; } return ''; }
+function swapAll(features,texts){
+  for(const f of features) f.rings=f.rings.map(r=>r.map(p=>[p[1],p[0]]));
+  for(const t of texts) t.p=[t.p[1],t.p[0]];
+}
+
+/* ---------- 항공사진 중첩 ---------- */
+let orthoImg=null;
+function loadScript(src){ return new Promise(res=>{ if(document.querySelector(`script[src="${src}"]`)) return res(); const sc=document.createElement('script'); sc.src=src; sc.onload=()=>res(); sc.onerror=()=>res(); document.head.appendChild(sc); }); }
+function blobToImg(b){ return new Promise(res=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>res(null); i.src=URL.createObjectURL(b); }); }
+async function loadOrtho(files){
+  const imgF=files.find(f=>/\.(tif|tiff|jpe?g|png)$/i.test(f.name)); if(!imgF){ toast('사진 파일(.tif·.jpg·.png)을 함께 선택해 주세요.'); return; }
+  const wf=files.find(f=>/\.(jgw|pgw|tfw|wld|jpw|pngw|tifw)$/i.test(f.name));
+  toast('항공사진을 불러오는 중…');
+  let world=null; if(wf){ const n=(await wf.text()).trim().split(/\s+/).map(Number); if(n.length>=6 && n.slice(0,6).every(isFinite)) world=n.slice(0,6); }
+  let cv, W, H, bbox=null;
+  if(/\.tiff?$/i.test(imgF.name)){
+    await loadScript('https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js');
+    if(!window.GeoTIFF) throw new Error('GeoTIFF 기능을 불러오지 못했습니다');
+    const tiff=await GeoTIFF.fromArrayBuffer(await imgF.arrayBuffer()); const im=await tiff.getImage();
+    W=im.getWidth(); H=im.getHeight(); if(!world){ try{ bbox=im.getBoundingBox(); }catch(e){} }
+    const k=Math.min(1,4096/Math.max(W,H)); const w=Math.max(1,Math.round(W*k)), h=Math.max(1,Math.round(H*k));
+    const rgb=await im.readRGB({interleave:true, width:w, height:h});
+    cv=document.createElement('canvas'); cv.width=w; cv.height=h; const ctx=cv.getContext('2d'); const id=ctx.createImageData(w,h); const nb=Math.round(rgb.length/(w*h))||3;
+    let mx=255; if(rgb.BYTES_PER_ELEMENT>1){ mx=0; for(let i=0;i<rgb.length;i+=97) if(rgb[i]>mx) mx=rgb[i]; mx=mx||1; }
+    for(let i=0,j=0;i<w*h;i++,j+=nb){ id.data[i*4]=rgb[j]*255/mx; id.data[i*4+1]=rgb[j+1]*255/mx; id.data[i*4+2]=rgb[j+2]*255/mx; id.data[i*4+3]=255; }
+    ctx.putImageData(id,0,0);
+  } else {
+    const el=await blobToImg(imgF); if(!el) throw new Error('사진을 열 수 없습니다');
+    W=el.naturalWidth; H=el.naturalHeight; const k=Math.min(1,4096/Math.max(W,H));
+    cv=document.createElement('canvas'); cv.width=Math.round(W*k); cv.height=Math.round(H*k); cv.getContext('2d').drawImage(el,0,0,cv.width,cv.height); URL.revokeObjectURL(el.src);
+  }
+  if(world){ const [A,D,B,E,C,F]=world; if(Math.abs(D)>1e-9||Math.abs(B)>1e-9) toast('회전 값이 있는 월드파일이라 회전 없이 표시합니다.');
+    const left=C-A/2, top=F-E/2; bbox=[left, top+E*H, left+A*W, top]; }
+  if(!bbox){ toast('좌표 정보가 없습니다. GeoTIFF이거나 월드파일(.jgw 등)을 함께 선택해 주세요.'); return; }
+  bbox=[Math.min(bbox[0],bbox[2]),Math.min(bbox[1],bbox[3]),Math.max(bbox[0],bbox[2]),Math.max(bbox[1],bbox[3])];
+  const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.85));
+  await DB.put('blobs','__ortho',blob); orthoImg=await blobToImg(blob);
+  state.project.ortho={name:imgF.name, bbox, opacity:0.9, show:true, w:cv.width, h:cv.height, px:(bbox[2]-bbox[0])/cv.width};
+  const b=cache.bounds;
+  if(b && (bbox[2]<b[0]||bbox[0]>b[2]||bbox[3]<b[1]||bbox[1]>b[3])) toast('항공사진이 경계 데이터와 겹치지 않습니다. 좌표계·좌표 순서를 확인해 주세요.');
+  else toast('항공사진을 중첩했습니다.');
+  if(!b) mapFit(); renderDataSheet(); renderAll(); save();
+}
+function renderOrtho(){
+  const O=state.project.ortho; $('#orthoBox').hidden=!O; $('#btnOrtho').hidden=!O; if(!O) return;
+  $('#orInfo').textContent=`${O.name} · 화면용 ${O.w}×${O.h}px (약 ${fmt(O.px,2)}m/px로 축소 표시)`;
+  $('#orShow').checked=O.show; $('#orOp').value=Math.round(O.opacity*100); $('#btnOrtho').setAttribute('aria-pressed',String(O.show));
+}
+$('#orShow').onchange=e=>{ state.project.ortho.show=e.target.checked; renderOrtho(); req(); save(); };
+$('#orOp').oninput=e=>{ state.project.ortho.opacity=+e.target.value/100; req(); save(); };
+$('#btnOrtho').onclick=()=>{ const O=state.project.ortho; if(!O) return; O.show=!O.show; renderOrtho(); req(); save(); };
+$('#orDel').onclick=async()=>{ if(!await ask('항공사진을 지도에서 뺄까요? 원본 파일은 그대로 있습니다.','빼기')) return; state.project.ortho=null; orthoImg=null; await DB.del('blobs','__ortho'); renderOrtho(); req(); save(); };
+function drawOrtho(ctx,T,alpha){ const O=state.project.ortho; if(!O||!O.show||!orthoImg) return false; const a=T([O.bbox[0],O.bbox[3]]), z=T([O.bbox[2],O.bbox[1]]); ctx.save(); ctx.globalAlpha=alpha; ctx.drawImage(orthoImg,a[0],a[1],z[0]-a[0],z[1]-a[1]); ctx.restore(); return true; }
+
+/* ---------- 저장 (이 기기 IndexedDB) ---------- */
+const DB={db:null,
+  async open(){ try{ this.db=await new Promise((res,rej)=>{ const r=indexedDB.open('hjfield',1); r.onupgradeneeded=()=>{ r.result.createObjectStore('kv'); r.result.createObjectStore('blobs'); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }catch(e){ this.db=null; } },
+  op(store,mode,fn){ return new Promise(res=>{ if(!this.db) return res(null); try{ const tx=this.db.transaction(store,mode); const rq=fn(tx.objectStore(store)); tx.oncomplete=()=>res(rq?rq.result:null); tx.onerror=()=>res(null); tx.onabort=()=>res(null); }catch(e){ res(null); } }); },
+  get(s,k){ return this.op(s,'readonly',st=>st.get(k)); },
+  put(s,k,v){ return this.op(s,'readwrite',st=>st.put(v,k)); },
+  del(s,k){ return this.op(s,'readwrite',st=>st.delete(k)); },
+  clear(s){ return this.op(s,'readwrite',st=>st.clear()); }
+};
+let saveT=null;
+function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{
+  const snap=JSON.stringify({project:state.project, photos:state.photos, active:state.active},(k,v)=>k.startsWith('_')?undefined:v);
+  DB.put('kv','state',snap);
+},400); }
+
+/* ---------- UI 공통 ---------- */
+let toastT=null;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,3200); }
+function ask(msg, ok='확인'){ return new Promise(res=>{ const m=$('#confirmModal'); $('#cfText').textContent=msg; $('#cfYes').textContent=ok; m.hidden=false;
+  const done=v=>{ m.hidden=true; $('#cfYes').onclick=$('#cfNo').onclick=null; res(v); }; $('#cfYes').onclick=()=>done(true); $('#cfNo').onclick=()=>done(false); }); }
+function tok(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+const fmt=(x,d=2)=>x.toLocaleString('ko-KR',{minimumFractionDigits:d,maximumFractionDigits:d});
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function setView(v){ state.view=v; $('#app').dataset.view=v; document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', String(t.dataset.v===v))); if(v==='map'||innerWidth>=900) requestAnimationFrame(()=>{ mapResize(); if(map.pendingFit){ map.pendingFit=false; mapFit(); } }); if(v==='report') renderReport(); }
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>setView(t.dataset.v)));
+
+/* ---------- 번호 ---------- */
+function numbering(){
+  const m=new Map(); let n=0, k=0; const before=new Map();
+  for(const p of state.photos){ if(p.role==='before'){ k++; m.set(p.id,'조치'+k); before.set(p.id,k); } else if(p.role!=='after'){ n++; m.set(p.id,String(n)); } }
+  for(const p of state.photos) if(p.role==='after') m.set(p.id, before.has(p.pairOf)? `조치${before.get(p.pairOf)} 수정` : '수정');
+  return m;
+}
+function shortNo(s){ return s.replace('조치','조').replace(' 수정','′'); }
+
+/* ---------- 사진 처리 ---------- */
+function parseExif(buf){
+  try{ const v=new DataView(buf); if(v.getUint16(0)!==0xFFD8) return null; let off=2;
+    while(off<v.byteLength-4){ const m=v.getUint16(off); if((m&0xFF00)!==0xFF00) return null; const len=v.getUint16(off+2);
+      if(m===0xFFE1 && v.getUint32(off+4)===0x45786966) return readTiff(v,off+10);
+      if(m===0xFFDA) break; off+=2+len; }
+  }catch(e){} return null;
+}
+function readTiff(v,t){
+  const le=v.getUint16(t)===0x4949; const u16=o=>v.getUint16(o,le), u32=o=>v.getUint32(o,le);
+  const ifd=t+u32(t+4); const n=u16(ifd); let gps=null, ex=null; const out={};
+  for(let i=0;i<n;i++){ const e=ifd+2+i*12, tag=u16(e); if(tag===0x8825) gps=t+u32(e+8); if(tag===0x8769) ex=t+u32(e+8); }
+  if(gps){ const gn=u16(gps), r={};
+    for(let i=0;i<gn;i++){ const e=gps+2+i*12, tag=u16(e), type=u16(e+2);
+      if(tag===1||tag===3) r[tag]=String.fromCharCode(v.getUint8(e+8));
+      else if((tag===2||tag===4) && type===5){ const p=t+u32(e+8); const q=k=>{ const d=u32(p+k*8+4); return d? u32(p+k*8)/d : 0; }; r[tag]=q(0)+q(1)/60+q(2)/3600; } }
+    if(r[2] && r[4]){ out.lat=r[2]*(r[1]==='S'?-1:1); out.lon=r[4]*(r[3]==='W'?-1:1); } }
+  if(ex){ const en=u16(ex); for(let i=0;i<en;i++){ const e=ex+2+i*12; if(u16(e)===0x9003){ const p=t+u32(e+8); let s=''; for(let k=0;k<19;k++) s+=String.fromCharCode(v.getUint8(p+k)); out.time=s; } } }
+  return out;
+}
+function loadImg(id){
+  if(imgs.has(id)) return imgs.get(id);
+  const pr=new Promise(async res=>{ let b=blobs.get(id); if(!b){ b=await DB.get('blobs',id); if(b) blobs.set(id,b); }
+    if(!b) return res(null); const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=URL.createObjectURL(b); });
+  imgs.set(id,pr); return pr;
+}
+async function fileToPhoto(file){
+  const buf=await file.arrayBuffer(); const ex=parseExif(buf)||{};
+  const url=URL.createObjectURL(file);
+  const im=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
+  const k=Math.min(1,2000/Math.max(im.naturalWidth,im.naturalHeight));
+  const c=document.createElement('canvas'); c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k);
+  c.getContext('2d').drawImage(im,0,0,c.width,c.height); URL.revokeObjectURL(url);
+  const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.88));
+  const id='p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const ll=(ex.lat&&ex.lon)?[ex.lon,ex.lat]:null;
+  const ph={id, w:c.width, h:c.height, ll, loc:ll?llToLocal(ll):null, locSrc:ll?'exif':'', time:ex.time||'', strokes:[], tags:[], role:'normal', pairOf:null, memo:''};
+  blobs.set(id,blob); await DB.put('blobs',id,blob);
+  return ph;
+}
+async function addFiles(list, openAfter){
+  const files=[...list].filter(f=>/^image\//.test(f.type)||/\.(jpe?g|png|heic|webp)$/i.test(f.name)); if(!files.length) return;
+  toast(`사진 ${files.length}장 처리 중…`);
+  let last=null, noGps=0;
+  for(const f of files){ try{ const ph=await fileToPhoto(f);
+      if(!ph.loc && openAfter && gps.pos && Date.now()-gps.t<90000){ ph.loc=gps.pos.slice(); ph.ll=gps.ll.slice(); ph.locSrc='gps'; ph.acc=gps.acc; }
+      state.photos.push(ph); last=ph; if(!ph.loc) noGps++; }catch(e){ toast(`${f.name}을(를) 열 수 없습니다. JPG로 찍거나 변환해 주세요.`); } }
+  if(!last) return;
+  state.active=last.id; renderAll(); save();
+  if(noGps) toast(noGps===files.length && files.length===1 ? '사진에 위치정보가 없습니다. 지도에서 촬영 위치를 눌러 지정해 주세요.' : `위치정보 없는 사진 ${noGps}장: 지도에서 위치를 지정해 주세요.`);
+  else toast(`사진 ${files.length}장 추가 · 위치 자동 지정`);
+  if(openAfter){ if(!last.loc){ startSetLoc(last.id, true); } else openEditor(last.id); }
+}
+document.addEventListener('change',async e=>{ const t=e.target; if(!t.matches||!t.matches('input[type=file][data-kind]')) return; const files=[...t.files]; t.value=''; if(!files.length) return;
+  if(t.dataset.kind==='cam') addFiles(files,true);
+  else if(t.dataset.kind==='album') addFiles(files,false);
+  else if(t.dataset.kind==='ortho'){ try{ await loadOrtho(files); }catch(err){ toast('항공사진을 읽지 못했습니다: '+(err&&err.message||'형식 오류')); } }
+  else { try{ await loadDataFiles(files); }catch(err){ toast('파일을 읽지 못했습니다: '+(err&&err.message||'형식 오류')); } } });
+
+/* ---------- 주석(경계선·라벨) 그리기 ---------- */
+const mctx=document.createElement('canvas').getContext('2d');
+function annoSize(ph){ const M=Math.max(ph.w,ph.h); return {lw:Math.max(2,M*0.0045), fs:Math.round(M*0.026)}; }
+function tagGeom(ph,tag){
+  const fs=Math.round(annoSize(ph).fs*(tag.sc||1)); mctx.font=`700 ${fs}px ${FONT}`;
+  const lines=[tag.l1,tag.l2].filter(Boolean); const pad=fs*0.38, lh=fs*1.22;
+  const w=Math.max(...lines.map(s=>mctx.measureText(s).width))+pad*2, h=lines.length*lh+pad*1.1;
+  return {x:tag.x-w/2, y:tag.y-h/2, w, h, lines, fs, lh, pad};
+}
+function drawAnno(ctx, ph, opt={}){
+  const {lw}=annoSize(ph);
+  ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round';
+  const strokes=ph.strokes.slice(); if(opt.cur && opt.cur.length) strokes.push(Object.assign({pts:opt.cur, _cur:true}, opt.curStyle||{}));
+  for(const s of strokes){
+    if(s.pts.length<1) continue;
+    const w=lw*(s.w||1), col=s.color||'#FF1A1A';
+    if(opt.sel && opt.sel.type==='stroke' && opt.sel.ref===s){ ctx.setLineDash([]); ctx.strokeStyle='rgba(0,200,255,.85)'; ctx.lineWidth=w+lw*2.4; strokePath(ctx,s); ctx.stroke(); }
+    ctx.setLineDash(s.dash?[w*3.2,w*2.4]:[]); ctx.lineCap=s.dash?'butt':'round'; ctx.strokeStyle=col; ctx.lineWidth=w; strokePath(ctx,s); ctx.stroke(); ctx.setLineDash([]); ctx.lineCap='round';
+    if(opt.handles && (s._cur || (opt.sel && opt.sel.ref===s))){ const hr=opt.hr||lw*1.2; const ends=s.pts.length>1?[s.pts[0],s.pts[s.pts.length-1]]:[s.pts[0]];
+      for(const p of ends){ ctx.beginPath(); ctx.arc(p[0],p[1],hr,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill(); ctx.lineWidth=hr*0.4; ctx.strokeStyle=col==='#FFFFFF'?'#333':col; ctx.stroke(); } }
+  }
+  for(const t of ph.tags){
+    const g=tagGeom(ph,t);
+    ctx.fillStyle = t.kind==='out' ? '#22A3F5' : '#FFF200'; ctx.fillRect(g.x,g.y,g.w,g.h);
+    ctx.lineWidth=Math.max(1,g.fs*0.06); ctx.strokeStyle = t.kind==='out' ? '#0B6FB0' : '#8A8200'; ctx.strokeRect(g.x,g.y,g.w,g.h);
+    ctx.fillStyle = t.kind==='out' ? '#FFFFFF' : '#111111'; ctx.font=`700 ${g.fs}px ${FONT}`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    g.lines.forEach((s,i)=>ctx.fillText(s, t.x, g.y+g.pad*0.55+g.lh*(i+0.5)));
+    if(opt.sel && opt.sel.ref===t){ ctx.setLineDash([g.fs*0.3,g.fs*0.2]); ctx.strokeStyle='#00C8FF'; ctx.lineWidth=g.fs*0.12; ctx.strokeRect(g.x-g.fs*0.2,g.y-g.fs*0.2,g.w+g.fs*0.4,g.h+g.fs*0.4); ctx.setLineDash([]); }
+  }
+  ctx.restore();
+}
+function path(ctx,pts){ ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); }
+function strokePath(ctx,s){ const P=s.pts; if(!s.curve || P.length<3) return path(ctx,P);
+  ctx.beginPath(); ctx.moveTo(P[0][0],P[0][1]);
+  for(let i=0;i<P.length-1;i++){ const p0=P[i-1]||P[i], p1=P[i], p2=P[i+1], p3=P[i+2]||p2;
+    ctx.bezierCurveTo(p1[0]+(p2[0]-p0[0])/6, p1[1]+(p2[1]-p0[1])/6, p2[0]-(p3[0]-p1[0])/6, p2[1]-(p3[1]-p1[1])/6, p2[0], p2[1]); } }
+async function renderAnnotated(ph, maxSide=1600){
+  const im=await loadImg(ph.id); const k=Math.min(1,maxSide/Math.max(ph.w,ph.h));
+  const c=document.createElement('canvas'); c.width=Math.round(ph.w*k); c.height=Math.round(ph.h*k);
+  const ctx=c.getContext('2d'); ctx.fillStyle='#ddd'; ctx.fillRect(0,0,c.width,c.height);
+  ctx.scale(k,k); if(im) ctx.drawImage(im,0,0,ph.w,ph.h); drawAnno(ctx,ph); return c;
+}
+async function drawThumb(cv, ph){
+  const im=await loadImg(ph.id); const ctx=cv.getContext('2d'); const W=cv.width,H=cv.height;
+  ctx.fillStyle=tok('--bg'); ctx.fillRect(0,0,W,H); if(!im) return;
+  const k=Math.min(W/ph.w,H/ph.h); ctx.save(); ctx.translate((W-ph.w*k)/2,(H-ph.h*k)/2); ctx.scale(k,k); ctx.drawImage(im,0,0,ph.w,ph.h); drawAnno(ctx,ph); ctx.restore();
+}
+
+/* ---------- 제스처 ---------- */
+function gestures(el,h){
+  const pts=new Map(); let g=null;
+  const xy=e=>{ const r=el.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
+  el.addEventListener('pointerdown',e=>{ el.setPointerCapture(e.pointerId); const p=xy(e); pts.set(e.pointerId,p);
+    if(pts.size===1){ const d=h.dragStart?h.dragStart(p):null; g={type:d?'drag':'pan', d, start:p, last:p, moved:false}; }
+    else if(pts.size===2){ const [a,b]=[...pts.values()]; g={type:'pinch', d0:Math.hypot(a.x-b.x,a.y-b.y)||1, m0:{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}; h.pinchStart(); }
+  });
+  el.addEventListener('pointermove',e=>{ if(!pts.has(e.pointerId)) return; const p=xy(e); pts.set(e.pointerId,p); if(!g) return;
+    if(g.type==='pinch'){ if(pts.size<2) return; const [a,b]=[...pts.values()]; h.pinch(Math.hypot(a.x-b.x,a.y-b.y)/g.d0, g.m0, {x:(a.x+b.x)/2,y:(a.y+b.y)/2}); }
+    else { if(Math.hypot(p.x-g.start.x,p.y-g.start.y)>8) g.moved=true; if(g.moved){ if(g.type==='pan') h.pan(p.x-g.last.x,p.y-g.last.y); else g.d(p); } g.last=p; }
+  });
+  const end=e=>{ if(!pts.has(e.pointerId)) return; const p=xy(e); const tap=g && g.type!=='pinch' && !g.moved && pts.size===1 && e.type==='pointerup';
+    pts.delete(e.pointerId);
+    if(g && g.type==='drag' && g.moved && h.dragEnd) h.dragEnd();
+    if(tap) h.tap(p);
+    if(!pts.size) g=null; else if(g && g.type==='pinch'){ const r=[...pts.values()][0]; g={type:'pan',start:r,last:r,moved:true}; }
+  };
+  el.addEventListener('pointerup',end); el.addEventListener('pointercancel',end);
+  el.addEventListener('wheel',e=>{ e.preventDefault(); const p=xy(e); h.pinchStart(); h.pinch(Math.exp(-e.deltaY*0.0015),p,p); },{passive:false});
+}
+
+/* ---------- 지도 ---------- */
+const map={cv:$('#map'), ctx:$('#map').getContext('2d'), v:{cx:0,cy:0,s:1}, W:0,H:0,dpr:1, v0:null, hits:[], raf:0};
+const w2s=p=>[map.W/2+(p[0]-map.v.cx)*map.v.s, map.H/2-(p[1]-map.v.cy)*map.v.s];
+function s2w(x,y,v=map.v){ return [v.cx+(x-map.W/2)/v.s, v.cy-(y-map.H/2)/v.s]; }
+function mapResize(){ const r=map.cv.getBoundingClientRect(); if(!r.width) return; const first=!map.W; map.dpr=devicePixelRatio||1; map.W=r.width; map.H=r.height; map.cv.width=Math.round(r.width*map.dpr); map.cv.height=Math.round(r.height*map.dpr); if(first||map.pendingFit){ map.pendingFit=false; mapFit(); } else mapDraw(); }
+function mapFit(){ if(!map.W){ map.pendingFit=true; return; } const b=dataBounds(true); if(!b){ mapDraw(); return; } const pad=56; const w=Math.max(b[2]-b[0],20), h=Math.max(b[3]-b[1],20);
+  const sc=Math.min((map.W-pad*2)/w,(map.H-pad*2)/h); if(!Number.isFinite(sc)||sc<=0||!b.every(Number.isFinite)){ mapDraw(); return; }
+  map.v.s=sc; map.v.cx=(b[0]+b[2])/2; map.v.cy=(b[1]+b[3])/2; mapDraw(); }
+function req(){ if(map.raf) return; map.raf=requestAnimationFrame(()=>{ map.raf=0; mapDraw(); }); }
+function ringPath(c,r,close){ r.forEach((p,i)=>{ const [x,y]=w2s(p); i?c.lineTo(x,y):c.moveTo(x,y); }); if(close) c.closePath(); }
+function mapDraw(){
+  const c=map.ctx, W=map.W, H=map.H; if(!W) return;
+  c.setTransform(map.dpr,0,0,map.dpr,0,0); c.fillStyle=tok('--map-bg'); c.fillRect(0,0,W,H);
+  const [x0,y0]=s2w(0,H), [x1,y1]=s2w(W,0); const vis=f=>{ const b=fBox(f); return !(b[2]<x0||b[0]>x1||b[3]<y0||b[1]>y1); };
+  const feats=state.project.features;
+  let onO=false; if(vwOn()){ onO=vwDraw(c,w2s,vwTiles([x0,y0,x1,y1],map.v.s),false)||onO; }
+  onO=drawOrtho(c,w2s,state.project.ortho?state.project.ortho.opacity:1)||onO;
+  c.lineWidth=onO?1.3:1; c.strokeStyle=onO?'rgba(255,255,255,.9)':tok('--parcel'); c.beginPath();
+  for(const f of feats){ if(f.isD||!vis(f)) continue; for(const r of f.rings) ringPath(c,r,f.closed); } c.stroke();
+  if(cache.D.length){ c.beginPath(); for(const f of cache.D) for(const r of f.rings) ringPath(c,r,true); c.fillStyle=tok('--district-fill'); c.fill('evenodd'); c.lineWidth=2.6; c.strokeStyle=onO?'#FF2A2A':tok('--district'); c.stroke(); }
+  const s=map.v.s;
+  if(s>0.3){ c.fillStyle=onO?'#FFFFFF':tok('--label'); c.textAlign='center'; c.textBaseline='middle'; c.font=`600 ${s>2?13:11}px ${FONT}`; c.lineWidth=3; c.strokeStyle='rgba(0,0,0,.7)'; c.lineJoin='round';
+    const put=(t,x,y)=>{ if(onO) c.strokeText(t,x,y); c.fillText(t,x,y); };
+    if(cache.parcels.length){ for(const f of cache.parcels){ if(!f.jibun||!vis(f)) continue; const b=fBox(f); if((b[2]-b[0])*s<36||(b[3]-b[1])*s<14) continue; const [x,y]=w2s(labelPt(f)); put(f.jibun+f.jimok,x,y); } }
+    else if(s>0.6){ for(const t of state.project.texts){ const [x,y]=w2s(t.p); if(x<-50||x>W+50||y<-20||y>H+20) continue; put(t.text,x,y); } }
+  }
+  $('#mapStat').textContent = feats.length||state.project.texts.length ? `도형 ${feats.length.toLocaleString()} · 문자 ${state.project.texts.length.toLocaleString()}` : '';
+  // 내 위치
+  if(gps.pos){ const [gx,gy]=w2s(gps.pos); const ar=Math.max(6,(gps.acc||0)*map.v.s);
+    c.beginPath(); c.arc(gx,gy,ar,0,Math.PI*2); c.fillStyle='rgba(27,90,203,.14)'; c.fill(); c.lineWidth=1.2; c.strokeStyle='rgba(27,90,203,.6)'; c.stroke();
+    c.beginPath(); c.arc(gx,gy,8,0,Math.PI*2); c.fillStyle='#FFFFFF'; c.fill(); c.beginPath(); c.arc(gx,gy,5.5,0,Math.PI*2); c.fillStyle='#1B5ACB'; c.fill(); }
+  // 촬영 위치
+  const nums=numbering(); map.hits=[];
+  c.font=`700 13px ${FONT}`;
+  for(const p of state.photos){ if(!p.loc) continue; const [x,y]=w2s(p.loc); if(x<-40||x>W+40||y<-40||y>H+40) continue;
+    const label=shortNo(nums.get(p.id)||''); const act=p.id===state.active; const tw=c.measureText(label).width+12, th=22; const bx=x-tw/2, by=y-th-9;
+    c.beginPath(); c.moveTo(x,y); c.lineTo(x-5,by+th); c.lineTo(x+5,by+th); c.closePath(); c.fillStyle=act?tok('--accent'):'#111'; c.fill();
+    c.fillStyle=act?tok('--accent'):'#FFFFFF'; c.fillRect(bx,by,tw,th); c.lineWidth=1.5; c.strokeStyle=act?tok('--accent'):'#111'; c.strokeRect(bx,by,tw,th);
+    c.fillStyle=act?tok('--accent-ink'):'#111'; c.textAlign='center'; c.textBaseline='middle'; c.fillText(label,x,by+th/2+0.5);
+    c.beginPath(); c.arc(x,y,3,0,Math.PI*2); c.fillStyle=act?tok('--accent'):'#111'; c.fill();
+    map.hits.push({id:p.id, x0:bx-4, y0:by-4, x1:bx+tw+4, y1:y+6});
+  }
+  // 축척
+  if(feats.length || state.photos.some(p=>p.loc) || state.project.ortho){
+    const target=110/s; const nice=[1,2,5,10,20,25,50,100,200,250,500,1000,2000,5000,10000]; const L=nice.find(n=>n>=target*0.6)||10000; const px=L*s;
+    const bx=14, by=H-18; c.strokeStyle=tok('--fg'); c.lineWidth=2; c.beginPath(); c.moveTo(bx,by-5); c.lineTo(bx,by); c.lineTo(bx+px,by); c.lineTo(bx+px,by-5); c.stroke();
+    c.fillStyle=tok('--fg'); c.font=`600 12px ${FONT}`; c.textAlign='left'; c.textBaseline='bottom'; c.fillText(L>=1000?`${L/1000}km`:`${L}m`, bx+px+6, by+1);
+  } else {
+    c.fillStyle=tok('--muted'); c.font=`600 14px ${FONT}`; c.textAlign='center'; c.textBaseline='middle'; c.fillText('경계 데이터(DXF·SHP)를 불러오세요',W/2,H/2);
+  }
+}
+gestures(map.cv,{
+  pinchStart(){ map.v0={...map.v}; },
+  pinch(k,m0,m){ const v0=map.v0; const w=s2w(m0.x,m0.y,v0); const s=Math.max(0.005,Math.min(400,v0.s*k)); map.v.s=s; map.v.cx=w[0]-(m.x-map.W/2)/s; map.v.cy=w[1]+(m.y-map.H/2)/s; req(); },
+  pan(dx,dy){ map.v.cx-=dx/map.v.s; map.v.cy+=dy/map.v.s; if(gps.follow){ gps.follow=false; renderGps(); } req(); },
+  tap(p){
+    if(state.mapMode==='setloc'){ const ph=getPhoto(state.setlocId); if(ph){ ph.loc=s2w(p.x,p.y); ph.locSrc='map'; const open=state.setlocOpen; endSetLoc(); renderAll(); save(); toast('촬영 위치를 지정했습니다.'); if(open) openEditor(ph.id); } return; }
+    const hit=[...map.hits].reverse().find(h=>p.x>=h.x0&&p.x<=h.x1&&p.y>=h.y0&&p.y<=h.y1);
+    state.active = hit? hit.id : null; renderAll();
+  }
+});
+new ResizeObserver(()=>mapResize()).observe(map.cv);
+$('#btnFit').onclick=mapFit;
+function getPhoto(id){ return state.photos.find(p=>p.id===id); }
+function startSetLoc(id, openAfter){ state.mapMode='setloc'; state.setlocId=id; state.setlocOpen=!!openAfter; state.active=id; $('#setlocBar').hidden=false;
+  $('#setlocText').textContent=`사진 ${numbering().get(id)||''}: 촬영 위치를 지도에서 누르세요`; setView('map'); renderAll(); }
+function endSetLoc(){ state.mapMode='pan'; state.setlocId=null; $('#setlocBar').hidden=true; }
+$('#setlocCancel').onclick=()=>{ const open=state.setlocOpen, id=state.setlocId; endSetLoc(); req(); if(open && id) openEditor(id); };
+
+function locPill(ph){
+  if(!ph.loc) return '<span class="pill warn">위치 없음</span>';
+  const b=dataBounds(false); const far = b && (ph.loc[0]<b[0]-3000||ph.loc[0]>b[2]+3000||ph.loc[1]<b[1]-3000||ph.loc[1]>b[3]+3000);
+  if(far) return '<span class="pill warn">데이터 범위 밖</span>';
+  const ind=inDistrict(ph.loc); const where = ind===null?'':(ind?' · 지구 내':' · 지구 외');
+  return `<span class="pill ok">${srcName(ph)}${where}</span>`;
+}
+function srcName(ph){ return ph.locSrc==='exif'?'사진 GPS':ph.locSrc==='gps'?`현재 위치${ph.acc?' ±'+Math.round(ph.acc)+'m':''}`:'지도 지정'; }
+function coordText(ph){ return ph.loc? `X(북) ${fmt(ph.loc[1])}  Y(동) ${fmt(ph.loc[0])}` : '지도에서 위치를 지정해 주세요'; }
+
+/* ---------- 렌더 ---------- */
+function renderHeader(){
+  const P=state.project;
+  $('#projLabel').textContent = P.source ? `경계 데이터 ${P.isSample?'(예시)':''} · 필지 ${cache.parcels.length.toLocaleString()} · ${CRS[P.crs].name.split(' (')[0]}` : '경계 데이터 없음';
+  $('#sampleBanner').hidden=!P.isSample;
+  $('#photoCount').textContent = state.photos.length? `(${state.photos.length})` : '';
+}
+function renderSelCard(){
+  const ph=getPhoto(state.active); const card=$('#selCard');
+  if(!ph || state.mapMode==='setloc'){ card.hidden=true; return; }
+  card.hidden=false; $('#selNo').textContent=numbering().get(ph.id)||''; $('#selPill').innerHTML=locPill(ph); $('#selCoord').textContent=coordText(ph);
+  drawThumb($('#selThumb'),ph);
+}
+function renderPhotos(){
+  const list=$('#photoList'); const nums=numbering();
+  if(!state.photos.length){ list.innerHTML='<div class="empty"><b>아직 사진이 없습니다</b>현장에서 경계가 보이게 촬영하면 위치·지번 라벨이 자동으로 붙습니다.<span class="btn primary filebtn">사진 촬영<input type="file" data-kind="cam" accept="image/*" capture="environment" aria-label="사진 촬영"></span></div>'; return; }
+  const befores=state.photos.filter(p=>p.role==='before');
+  list.innerHTML=state.photos.map((p,i)=>{
+    const tags=p.tags.map(t=>t.l2?`${t.l1}${t.l2}`:t.l1).join(' · ') || (p.strokes.length?'라벨 없음':'경계선·라벨 없음');
+    const pairSel = p.role==='after' ? `<select data-k="pair" aria-label="짝 당초 사진"><option value="">당초 사진 선택</option>${befores.map(b=>`<option value="${b.id}" ${b.id===p.pairOf?'selected':''}>${nums.get(b.id)}</option>`).join('')}</select>` : '';
+    return `<article class="pcard ${p.id===state.active?'active':''}" data-id="${p.id}">
+      <canvas width="224" height="168" data-k="open" aria-label="사진 ${esc(nums.get(p.id)||'')} 편집"></canvas>
+      <div class="pbody">
+        <div class="row"><span class="no">${esc(nums.get(p.id)||'')}</span>${locPill(p)}${p.sample?'<span class="pill warn">예시</span>':''}</div>
+        <div class="tagline">${esc(tags)}</div>
+        <div class="row"><select data-k="role" aria-label="사진 구분"><option value="normal" ${p.role==='normal'?'selected':''}>현지사진</option><option value="before" ${p.role==='before'?'selected':''}>조치 당초</option><option value="after" ${p.role==='after'?'selected':''}>조치 수정</option></select>${pairSel}</div>
+        <input data-k="memo" value="${esc(p.memo||'')}" placeholder="메모 (예: 경계결정 부적합 → 재시공)" aria-label="메모">
+      </div>
+      <div class="pbtns"><button class="btn sm primary" data-k="open">경계선·라벨</button><button class="btn sm" data-k="loc">위치 지정</button><button class="btn sm" data-k="up" ${i===0?'disabled':''} aria-label="앞으로">↑</button><button class="btn sm" data-k="down" ${i===state.photos.length-1?'disabled':''} aria-label="뒤로">↓</button><button class="btn sm danger" data-k="del">삭제</button></div>
+    </article>`; }).join('');
+  list.querySelectorAll('.pcard').forEach(el=>drawThumb(el.querySelector('canvas'), getPhoto(el.dataset.id)));
+}
+$('#photoList').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-k]'); const card=e.target.closest('.pcard'); if(!card) return; const id=card.dataset.id; const ph=getPhoto(id); if(!ph) return;
+  const k=b&&b.dataset.k;
+  if(k==='open') return openEditor(id);
+  if(k==='loc') return startSetLoc(id,false);
+  if(k==='up'||k==='down'){ const i=state.photos.indexOf(ph), j=k==='up'?i-1:i+1; if(j<0||j>=state.photos.length) return; state.photos.splice(i,1); state.photos.splice(j,0,ph); renderAll(); save(); return; }
+  if(k==='del'){ if(!await ask(`사진 ${numbering().get(id)}을(를) 삭제할까요? 표시한 경계선과 라벨도 함께 지워집니다.`,'삭제')) return;
+    state.photos=state.photos.filter(p=>p!==ph); state.photos.forEach(p=>{ if(p.pairOf===id) p.pairOf=null; }); blobs.delete(id); imgs.delete(id); DB.del('blobs',id); if(state.active===id) state.active=null; renderAll(); save(); return; }
+  if(!b){ state.active=id; renderSelCard(); document.querySelectorAll('.pcard').forEach(c=>c.classList.toggle('active',c.dataset.id===id)); req(); }
+});
+$('#photoList').addEventListener('change',e=>{ const card=e.target.closest('.pcard'); if(!card) return; const ph=getPhoto(card.dataset.id); const k=e.target.dataset.k;
+  if(k==='role'){ ph.role=e.target.value; if(ph.role!=='after') ph.pairOf=null; if(ph.role!=='before') state.photos.forEach(p=>{ if(p.pairOf===ph.id) p.pairOf=null; }); renderAll(); save(); }
+  if(k==='pair'){ ph.pairOf=e.target.value||null; renderAll(); save(); } });
+$('#photoList').addEventListener('input',e=>{ if(e.target.dataset.k!=='memo') return; const ph=getPhoto(e.target.closest('.pcard').dataset.id); ph.memo=e.target.value; save(); });
+
+function renderAll(){ renderHeader(); renderPhotos(); renderSelCard(); req(); if(state.view==='report') renderReport(); }
+
+/* ---------- 경계 데이터 창 ---------- */
+function openData(){ renderDataSheet(); renderVw(); $('#dataModal').hidden=false; }
+$('#btnData').onclick=openData; $('#btnData2').onclick=openData;
+$('#dataModal').addEventListener('click',e=>{ if(e.target.id==='dataModal'||e.target.closest('[data-close]')) $('#dataModal').hidden=true; });
+
+function renderDataSheet(){
+  const P=state.project;
+  const polys=cache.closed.length, lines=P.features.length-polys;
+  const kinds=Object.entries(P.counts||{}).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${k} ${n.toLocaleString()}`).join(' · ');
+  const bb=cache.bounds; const rng = bb ? `<br>좌표 범위 X(북) ${fmt(bb[1],0)}~${fmt(bb[3],0)} · Y(동) ${fmt(bb[0],0)}~${fmt(bb[2],0)}` : '';
+  $('#dataSummary').innerHTML = P.source ? `<div class="stat"><div><b>${cache.parcels.length.toLocaleString()}</b><span>필지(닫힌 도형)</span></div><div><b>${cache.parcels.filter(f=>f.jibun).length.toLocaleString()}</b><span>지번 인식</span></div><div><b>${cache.D.length?'있음':'없음'}</b><span>지구계</span></div></div>
+    <p class="muted" style="margin:8px 0 0">${esc(P.source)}${P.isSample?' (예시)':''} · 열린 선 ${lines.toLocaleString()}개 · 문자 ${P.texts.length.toLocaleString()}개${kinds?'<br>도면 구성: '+esc(kinds):''}${rng}<br>지도 화면 크기 ${Math.round(map.W)}×${Math.round(map.H)}px${cache.outliers?`<br>다른 도형과 20km 이상 떨어진 도형 ${cache.outliers.toLocaleString()}개(도곽·범례 등)는 화면 맞춤에서 뺐습니다.`:''}${!polys&&P.features.length?'<br><b style="color:var(--warn)">닫힌 폴리라인이 없어 필지·지구 내외 판별이 어렵습니다. 도면을 닫힌 폴리라인 또는 SHP로 내보내 주세요.</b>':''}</p>` : '';
+  renderOrtho();
+  $('#selCrs').innerHTML=Object.entries(CRS).map(([k,v])=>`<option value="${k}" ${k===P.crs?'selected':''}>${v.name}</option>`).join('');
+  $('#crsNote').textContent = P.crsGuessed ? '파일에 좌표계 정보가 없어 중부원점(GRS80)으로 가정했습니다. 확인 필요.' : '.prj 파일에서 읽은 좌표계입니다.';
+  $('#swapNote').textContent = P.swapped ? '지적 좌표(X=북, Y=동) 순서로 판단해 자동으로 바꿨습니다.' : '사진 위치가 엉뚱한 곳에 찍히면 눌러 보세요.';
+  $('#shpFields').hidden = P.kind!=='shp';
+  const fo=sel=>['<option value="">(없음)</option>',...P.fields.map(f=>`<option ${f===sel?'selected':''}>${esc(f)}</option>`)].join('');
+  $('#selJibun').innerHTML=fo(P.fieldJibun); $('#selJimok').innerHTML=fo(P.fieldJimok);
+  $('#selDistrict').innerHTML=[['__auto','자동 판별'],['__none','지구계 없음 (필지 범위로 판정)'],...P.layers.map(l=>[l.name,`레이어: ${l.name} (${l.n})`])].map(([v,t])=>`<option value="${esc(v)}" ${v===P.districtLayer?'selected':''}>${esc(t)}</option>`).join('');
+}
+$('#selCrs').onchange=e=>{ const P=state.project; P.crs=e.target.value; P.crsGuessed=false; for(const ph of state.photos) if(ph.ll) ph.loc=llToLocal(ph.ll); renderDataSheet(); renderAll(); save(); };
+$('#btnSwap').onclick=()=>{ const P=state.project; swapAll(P.features,P.texts); for(const ph of state.photos) if(ph.loc && ph.locSrc==='map') ph.loc=[ph.loc[1],ph.loc[0]]; P.swapped=!P.swapped; derive(); renderDataSheet(); mapFit(); renderAll(); save(); };
+$('#selJibun').onchange=e=>{ state.project.fieldJibun=e.target.value; derive(); renderDataSheet(); renderAll(); save(); };
+$('#selJimok').onchange=e=>{ state.project.fieldJimok=e.target.value; derive(); renderDataSheet(); renderAll(); save(); };
+$('#selDistrict').onchange=e=>{ state.project.districtLayer=e.target.value; derive(); renderDataSheet(); mapFit(); renderAll(); save(); };
+
+/* ---------- 편집기 ---------- */
+const LW=[0.5,0.75,1,1.5,2,3,4]; const COLORS=[['#FF1A1A','빨강'],['#FFE600','노랑'],['#1E90FF','파랑'],['#22C55E','초록'],['#FFFFFF','흰색'],['#111111','검정']];
+const ed={ls:{color:'#FF1A1A',w:1,dash:false,curve:false}, ns:1, ph:null, im:null, cv:$('#edCv'), ctx:$('#edCv').getContext('2d'), v:{s:1,tx:0,ty:0}, v0:null, W:0,H:0,dpr:1, tool:'line', cur:[], sel:null, chip:null, chips:[], hist:[]};
+async function openEditor(id){
+  const ph=getPhoto(id); if(!ph) return; state.active=id;
+  ed.ph=ph; ed.im=await loadImg(id); ed.cur=[]; ed.sel=null; ed.hist=[];
+  const o=state.project.opt; if(o.line) ed.ls=Object.assign({},ed.ls,o.line); ed.ns=o.labelScale||1; renderStyle(); $('#edNewVal').textContent=Math.round(ed.ns*100)+'%';
+  $('#editor').hidden=false; $('#edTitle').textContent=`사진 ${numbering().get(id)||''}`;
+  const ind=ph.loc?inDistrict(ph.loc):null;
+  $('#edLoc').textContent = ph.loc ? `${srcName(ph)} 위치${ind===null?'':ind?' · 지구 내':' · 지구 외'}` : '위치 미지정 · 지번 검색으로 라벨을 고르세요';
+  buildChips(); setTool(ph.tags.length||!ph.strokes.length?'line':'label');
+  requestAnimationFrame(()=>{ edResize(); edFit(); edDraw(); });
+}
+function closeEditor(){ finishStroke(); $('#editor').hidden=true; ed.ph=null; renderAll(); save(); }
+$('#edClose').onclick=closeEditor;
+function edResize(){ const r=ed.cv.getBoundingClientRect(); ed.dpr=devicePixelRatio||1; ed.W=r.width; ed.H=r.height; ed.cv.width=Math.round(r.width*ed.dpr); ed.cv.height=Math.round(r.height*ed.dpr); }
+function edFit(){ const ph=ed.ph; if(!ph) return; const s=Math.min(ed.W/ph.w, ed.H/ph.h)*0.97; ed.v={s, tx:(ed.W-ph.w*s)/2, ty:(ed.H-ph.h*s)/2}; }
+new ResizeObserver(()=>{ if(!ed.ph) return; edResize(); edFit(); edDraw(); }).observe(ed.cv);
+function edDraw(){ const c=ed.ctx, ph=ed.ph; if(!ph) return;
+  c.setTransform(ed.dpr,0,0,ed.dpr,0,0); c.fillStyle=tok('--ed-bg'); c.fillRect(0,0,ed.W,ed.H);
+  c.save(); c.translate(ed.v.tx,ed.v.ty); c.scale(ed.v.s,ed.v.s); if(ed.im) c.drawImage(ed.im,0,0,ph.w,ph.h);
+  drawAnno(c,ph,{cur:ed.cur, curStyle:ed.ls, sel:ed.sel, handles:true, hr:4.5/ed.v.s}); c.restore(); }
+const toImg=p=>[(p.x-ed.v.tx)/ed.v.s, (p.y-ed.v.ty)/ed.v.s];
+function clampImg(q){ return [Math.max(0,Math.min(ed.ph.w,q[0])), Math.max(0,Math.min(ed.ph.h,q[1]))]; }
+function hitTest(p){
+  const q=toImg(p), ph=ed.ph, tol=22/ed.v.s;
+  for(let i=ph.tags.length-1;i>=0;i--){ const t=ph.tags[i], g=tagGeom(ph,t); if(q[0]>=g.x-tol*0.3&&q[0]<=g.x+g.w+tol*0.3&&q[1]>=g.y-tol*0.3&&q[1]<=g.y+g.h+tol*0.3) return {type:'tag',ref:t}; }
+  for(const s of ph.strokes) for(const i of [0,s.pts.length-1]) if(Math.hypot(q[0]-s.pts[i][0],q[1]-s.pts[i][1])<tol) return {type:'vertex',ref:s,i};
+  for(const s of ph.strokes) for(let i=0;i<s.pts.length-1;i++) if(segDist(q,s.pts[i],s.pts[i+1])<tol*0.7) return {type:'stroke',ref:s};
+  return null;
+}
+gestures(ed.cv,{
+  pinchStart(){ ed.v0={...ed.v}; },
+  pinch(k,m0,m){ const v0=ed.v0; const ix=(m0.x-v0.tx)/v0.s, iy=(m0.y-v0.ty)/v0.s; const s=Math.max(0.05,Math.min(20,v0.s*k)); ed.v={s, tx:m.x-ix*s, ty:m.y-iy*s}; edDraw(); },
+  pan(dx,dy){ ed.v.tx+=dx; ed.v.ty+=dy; edDraw(); },
+  dragStart(p){
+    if(ed.tool==='label'){ const h=hitTest(p); if(h && h.type==='tag'){ ed.sel={type:'tag',ref:h.ref}; selUI(); const q0=toImg(p), o=[h.ref.x,h.ref.y]; return pp=>{ const q=toImg(pp); h.ref.x=o[0]+q[0]-q0[0]; h.ref.y=o[1]+q[1]-q0[1]; edDraw(); }; } return null; }
+    if(ed.tool!=='select') { if(ed.tool==='line' && ed.cur.length){ const q=toImg(p); const n=ed.cur.length, i=[0,n-1].find(k=>Math.hypot(q[0]-ed.cur[k][0],q[1]-ed.cur[k][1])<22/ed.v.s); if(i!=null) return pp=>{ ed.cur[i]=clampImg(toImg(pp)); edDraw(); }; } return null; }
+    const h=hitTest(p); if(!h) return null;
+    if(h.type==='tag'){ ed.sel={type:'tag',ref:h.ref}; selUI(); const q0=toImg(p), o=[h.ref.x,h.ref.y]; return pp=>{ const q=toImg(pp); h.ref.x=o[0]+q[0]-q0[0]; h.ref.y=o[1]+q[1]-q0[1]; edDraw(); }; }
+    if(h.type==='vertex'){ ed.sel={type:'stroke',ref:h.ref}; selUI(); return pp=>{ h.ref.pts[h.i]=clampImg(toImg(pp)); edDraw(); }; }
+    if(h.type==='stroke'){ ed.sel={type:'stroke',ref:h.ref}; selUI(); const q0=toImg(p), o=h.ref.pts.map(v=>v.slice());
+      return pp=>{ const q=toImg(pp), dx=q[0]-q0[0], dy=q[1]-q0[1]; h.ref.pts=o.map(v=>[v[0]+dx,v[1]+dy]); edDraw(); }; }
+    return null;
+  },
+  dragEnd(){ save(); },
+  tap(p){
+    const q=toImg(p); const ph=ed.ph;
+    if(ed.tool==='line'){ if(q[0]<0||q[1]<0||q[0]>ph.w||q[1]>ph.h) return; if(ed.cur.some(v=>Math.hypot(q[0]-v[0],q[1]-v[1])<22/ed.v.s)) return; ed.cur.push(clampImg(q)); edDraw(); return; }
+    if(ed.tool==='label'){ const h=hitTest(p); if(h && h.type==='tag'){ ed.sel={type:'tag',ref:h.ref}; selUI(); edDraw(); return; }
+      if(ed.sel){ ed.sel=null; selUI(); edDraw(); return; }
+      if(!ed.chip){ toast('아래에서 라벨을 먼저 고르세요.'); return; } const t={x:q[0],y:q[1],kind:ed.chip.kind,l1:ed.chip.l1,l2:ed.chip.l2,sc:ed.ns}; ph.tags.push(t); ed.hist.push({type:'tag',ref:t}); ed.sel={type:'tag',ref:t}; selUI(); edDraw(); save(); return; }
+    const h=hitTest(p); ed.sel = h ? {type:h.type==='tag'?'tag':'stroke', ref:h.ref} : null; selUI(); edDraw();
+  }
+});
+function finishStroke(){ if(ed.ph && ed.cur.length>=2){ const s=Object.assign({pts:ed.cur},ed.ls); ed.ph.strokes.push(s); ed.hist.push({type:'stroke',ref:s}); save(); } ed.cur=[]; }
+function setTool(t){ if(t!==ed.tool) finishStroke(); ed.tool=t; ed.sel=null; renderStyle();
+  document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tool===t)));
+  $('#edPLine').hidden=t!=='line'; $('#edPLabel').hidden=t!=='label'; $('#edPSel').hidden=t!=='select'; selUI(); edDraw(); }
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+$('#edDone').onclick=()=>{ if(ed.cur.length<2){ toast('점을 두 개 이상 찍어 주세요.'); return; } finishStroke(); edDraw(); toast('선을 추가했습니다. 이어서 라벨을 붙이세요.'); };
+document.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>{
+  if(ed.cur.length){ ed.cur.pop(); edDraw(); return; }
+  const ph=ed.ph; let last=ed.hist.pop();
+  if(!last){ const s=ph.strokes[ph.strokes.length-1], t=ph.tags[ph.tags.length-1]; last = t?{type:'tag',ref:t}: s?{type:'stroke',ref:s}:null; }
+  if(!last) return; if(last.type==='tag') ph.tags=ph.tags.filter(x=>x!==last.ref); else ph.strokes=ph.strokes.filter(x=>x!==last.ref);
+  ed.sel=null; selUI(); edDraw(); save(); });
+function selUI(){ const r=$('#edSelRow'); renderStyle(); if(!ed.sel){ r.hidden=true; return; } r.hidden=false; const t=ed.sel.type==='tag';
+  $('#edSelText').textContent = t ? `선택한 라벨: ${ed.sel.ref.l1}${ed.sel.ref.l2?' '+ed.sel.ref.l2:''}` : `선택한 선 (점 ${ed.sel.ref.pts.length}개)`;
+  $('#edSizeCtl').hidden=!t; if(t) $('#edSizeVal').textContent=Math.round((ed.sel.ref.sc||1)*100)+'%';
+  $('#edTagEdit').hidden=!t; if(t) fillTagEdit(ed.sel.ref); }
+function splitL2(l2){ const m=String(l2||'').match(/^\((.*?)(?:,\s*(.*?))?\)$/); return m?[m[1]||'',m[2]||'']:[String(l2||''),'']; }
+function fillTagEdit(t){ const [j,m]=splitL2(t.l2); const set=(id,v)=>{ const el=$(id); if(document.activeElement!==el) el.value=v; };
+  set('#tgL1',t.l1||''); set('#tgJ',j); set('#tgM',m);
+  document.querySelectorAll('[data-tk]').forEach(b=>b.setAttribute('aria-pressed',String((t.kind==='out'?'out':'in')===b.dataset.tk))); }
+function applyTagEdit(){ if(!ed.sel||ed.sel.type!=='tag') return; const t=ed.sel.ref; const j=$('#tgJ').value.trim(), m=$('#tgM').value.trim();
+  t.l1=$('#tgL1').value; t.l2 = j ? `(${j}${m?', '+m:''})` : (m?`(${m})`:'');
+  $('#edSelText').textContent=`선택한 라벨: ${t.l1}${t.l2?' '+t.l2:''}`; edDraw(); save(); }
+['#tgL1','#tgJ','#tgM'].forEach(id=>$(id).addEventListener('input',applyTagEdit));
+$('#tgM').addEventListener('change',e=>{ const v=e.target.value.trim(); if(v.length>1){ e.target.value=jimokCode(v); applyTagEdit(); } });
+document.querySelectorAll('[data-tk]').forEach(b=>b.onclick=()=>{ if(!ed.sel||ed.sel.type!=='tag') return; const t=ed.sel.ref, k=b.dataset.tk;
+  if(!t.l1 || t.l1==='지구 내' || t.l1==='지구 외') t.l1 = k==='out'?'지구 외':'지구 내';
+  t.kind=k; fillTagEdit(t); $('#tgL1').value=t.l1; applyTagEdit(); });
+const clampSc=v=>Math.max(0.4,Math.min(3,Math.round(v*100)/100));
+function bumpTag(k){ if(!ed.sel||ed.sel.type!=='tag') return; const t=ed.sel.ref; t.sc=clampSc((t.sc||1)*(k>0?1.15:1/1.15)); selUI(); edDraw(); save(); }
+$('#edSmaller').onclick=()=>bumpTag(-1); $('#edBigger').onclick=()=>bumpTag(1);
+$('#edDesel').onclick=()=>{ ed.sel=null; selUI(); edDraw(); };
+document.addEventListener('keydown',e=>{ if(!ed.ph||!ed.sel) return; if(/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return; if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); $('#edDel').click(); } });
+document.querySelectorAll('[data-ns]').forEach(b=>b.onclick=()=>{ ed.ns=clampSc(ed.ns*(+b.dataset.ns>0?1.15:1/1.15)); state.project.opt.labelScale=ed.ns; $('#edNewVal').textContent=Math.round(ed.ns*100)+'%'; save(); });
+$('#edApplyAll').onclick=()=>{ if(!ed.ph||!ed.ph.tags.length){ toast('이 사진에 라벨이 없습니다.'); return; } ed.ph.tags.forEach(t=>t.sc=ed.ns); selUI(); edDraw(); save(); toast(`라벨 ${ed.ph.tags.length}개를 ${Math.round(ed.ns*100)}%로 맞췄습니다.`); };
+/* 선 스타일: 선택한 선이 있으면 그 선, 없으면 새로 그릴 선 */
+$('#edColors').innerHTML=COLORS.map(([c,n])=>`<button type="button" data-color="${c}" style="background:${c}" aria-label="${n}" title="${n}"></button>`).join('');
+function styleTarget(){ return (ed.sel && ed.sel.type==='stroke') ? ed.sel.ref : ed.ls; }
+function renderStyle(){ const box=$('#edStyle'); const selS=ed.sel&&ed.sel.type==='stroke'; box.hidden=!(ed.tool==='line'||selS); if(box.hidden) return;
+  const t=styleTarget(); $('#edStyleTtl').textContent= selS?'선택한 선':'새 선';
+  document.querySelectorAll('#edColors button').forEach(b=>b.setAttribute('aria-pressed',String((t.color||'#FF1A1A')===b.dataset.color)));
+  $('#edLwVal').textContent='두께 '+(LW.indexOf(t.w||1)+1);
+  document.querySelectorAll('[data-dash]').forEach(b=>b.setAttribute('aria-pressed',String(!!t.dash===(b.dataset.dash==='1'))));
+  document.querySelectorAll('[data-curve]').forEach(b=>b.setAttribute('aria-pressed',String(!!t.curve===(b.dataset.curve==='1')))); }
+function setStyle(k,v){ const t=styleTarget(); t[k]=v; if(t===ed.ls){ state.project.opt.line=Object.assign({},ed.ls); } renderStyle(); edDraw(); save(); }
+$('#edColors').addEventListener('click',e=>{ const b=e.target.closest('[data-color]'); if(b) setStyle('color',b.dataset.color); });
+document.querySelectorAll('[data-lw]').forEach(b=>b.onclick=()=>{ const t=styleTarget(); let i=LW.indexOf(t.w||1); if(i<0)i=2; i=Math.max(0,Math.min(LW.length-1,i+(+b.dataset.lw))); setStyle('w',LW[i]); });
+document.querySelectorAll('[data-dash]').forEach(b=>b.onclick=()=>setStyle('dash',b.dataset.dash==='1'));
+document.querySelectorAll('[data-curve]').forEach(b=>b.onclick=()=>setStyle('curve',b.dataset.curve==='1'));
+$('#edDel').onclick=()=>{ if(!ed.sel) return; const ph=ed.ph; if(ed.sel.type==='tag') ph.tags=ph.tags.filter(t=>t!==ed.sel.ref); else ph.strokes=ph.strokes.filter(s=>s!==ed.sel.ref); ed.sel=null; selUI(); edDraw(); save(); };
+
+function chipFor(p){ const l2=p.jibun?`(${p.jibun}${p.jimok?', '+p.jimok:''})`:''; return p.inside===false ? {kind:'out', l1:'지구 외', l2} : {kind:'in', l1:'지구 내', l2}; }
+function buildChips(q){
+  const ph=ed.ph; let list=[];
+  if(q){ const qs=q.trim(); list=cache.parcels.filter(f=>f.jibun && f.jibun.startsWith(qs)).slice(0,14).map(f=>chipFor({jibun:f.jibun,jimok:f.jimok,inside:parcelIn(f)}));
+    if(!list.length && state.project.texts.length){ const seen=new Set(); for(const t of state.project.texts){ const pj=parseJibun(t.text,true); if(pj&&pj.jibun.startsWith(qs)&&!seen.has(pj.jibun+pj.jimok)){ seen.add(pj.jibun+pj.jimok); list.push(chipFor({...pj,inside:null})); if(list.length>=14) break; } } } }
+  else if(ph.loc){ list=nearby(ph.loc).filter(n=>n.jibun).map(chipFor); }
+  const seen=new Set(); list=list.filter(c=>{ const k=c.kind+c.l2; if(seen.has(k)) return false; seen.add(k); return true; });
+  list.push({kind:'in',l1:'지구 내',l2:''},{kind:'out',l1:'지구 외',l2:''});
+  (ed.custom||[]).forEach(c=>list.push(c));
+  ed.chips=list; if(!ed.chip || !list.some(c=>c.kind===ed.chip.kind&&c.l1===ed.chip.l1&&c.l2===ed.chip.l2)) ed.chip=list[0];
+  const found=list.filter(c=>c.l2).length;
+  $('#edChipHint').textContent = q ? (found?`‘${q}’ 검색 결과입니다. 고른 뒤 사진에서 놓을 곳을 누르세요.`:`‘${q}’와 맞는 지번이 없습니다. 지번이 인식된 필지만 검색됩니다.`) : !ph.loc ? '사진 위치가 없어 주변 필지를 찾지 못했습니다. 지번을 검색하거나 ‘지구 내’·‘지구 외’를 쓰세요.' : found ? '촬영 위치 주변 필지입니다(가까운 순). 고른 뒤 사진에서 놓을 곳을 누르세요.' : '주변 60m 안에 지번이 인식된 필지가 없습니다. 지번을 검색하거나 직접 입력하세요.';
+  $('#edChips').innerHTML=list.map((c,i)=>`<button type="button" class="chip ${c.kind}" data-i="${i}" aria-pressed="${ed.chip===c}">${esc(c.l1)}${c.l2?`<small>${esc(c.l2)}</small>`:''}</button>`).join('');
+}
+$('#edChips').addEventListener('click',e=>{ const b=e.target.closest('.chip'); if(!b) return; ed.chip=ed.chips[+b.dataset.i]; $('#edChips').querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); });
+$('#edSearch').addEventListener('input',e=>buildChips(e.target.value));
+$('#edCustomAdd').onclick=()=>{ const v=$('#edCustom').value.trim(); if(!v) return; const c={kind:'in',l1:v,l2:''}; ed.custom=[...(ed.custom||[]),c]; $('#edCustom').value=''; buildChips($('#edSearch').value); ed.chip=ed.chips.find(x=>x.l1===v)||ed.chip; buildChips($('#edSearch').value); };
+$('#edSave').onclick=async()=>{ finishStroke(); const ph=ed.ph; const c=await renderAnnotated(ph,2000); const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.9));
+  await saveFile(`${fileStem()}_사진${(numbering().get(ph.id)||'').replace(/\s/g,'')}.jpg`, blob); edDraw(); };
+
+
+/* ---------- 끌어다 놓기·붙여넣기 (파일 선택이 막힌 화면용) ---------- */
+async function routeFiles(files){
+  files=[...files]; if(!files.length) return;
+  const data=files.filter(f=>/\.(dxf|shp|dbf|prj|cpg|zip)$/i.test(f.name));
+  const ortho=files.filter(f=>/\.(tif|tiff|jgw|pgw|tfw|wld|jpw)$/i.test(f.name));
+  const world=ortho.some(f=>/\.(jgw|pgw|tfw|wld|jpw)$/i.test(f.name));
+  const imgs=files.filter(f=>!data.includes(f) && !ortho.includes(f) && (/^image\//.test(f.type)||/\.(jpe?g|png|heic|webp)$/i.test(f.name)));
+  try{
+    if(data.length) await loadDataFiles(data);
+    if(ortho.length) await loadOrtho(world ? ortho.concat(files.filter(f=>/\.(jpe?g|png)$/i.test(f.name))) : ortho);
+    if(imgs.length && !(world && ortho.length)) await addFiles(imgs,false);
+    if(!data.length && !ortho.length && !imgs.length) toast('불러올 수 있는 파일이 아닙니다.');
+  }catch(err){ toast('파일을 읽지 못했습니다: '+(err&&err.message||'형식 오류')); }
+}
+let dragN=0;
+document.addEventListener('dragenter',e=>{ if(!e.dataTransfer||![...e.dataTransfer.types].includes('Files')) return; e.preventDefault(); dragN++; $('#dropzone').hidden=false; });
+document.addEventListener('dragover',e=>{ if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
+document.addEventListener('dragleave',()=>{ dragN=Math.max(0,dragN-1); if(!dragN) $('#dropzone').hidden=true; });
+document.addEventListener('drop',e=>{ if(!e.dataTransfer||!e.dataTransfer.files.length) return; e.preventDefault(); dragN=0; $('#dropzone').hidden=true; routeFiles(e.dataTransfer.files); });
+document.addEventListener('paste',e=>{ if(/INPUT|TEXTAREA/.test(document.activeElement&&document.activeElement.tagName)) return; const fs=e.clipboardData&&e.clipboardData.files; if(fs&&fs.length){ e.preventDefault(); routeFiles(fs); } });
+
+/* ---------- 출력 ---------- */
+let dlP=null;
+function downloads(){ if(!(window.claude && window.claude.use)) return Promise.resolve(null); return dlP || (dlP=window.claude.use('downloads').catch(()=>null)); }
+async function saveFile(name, data){
+  const dl=await downloads();
+  if(!dl){
+    const blob = data instanceof Blob ? data : new Blob([data]);
+    const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+    try{ const file=new File([blob],name,{type:blob.type||'application/octet-stream'});
+      if(mobile && navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:name}); toast('파일을 저장·공유했습니다.'); return true; } }
+    catch(e){ if(e && e.name==='AbortError'){ toast('저장을 취소했습니다.'); return false; } }
+    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),60000);
+    toast('파일을 저장했습니다. 다운로드 폴더를 확인하세요.'); return true;
+  }
+  try{ await dl.save({filename:name, data}); toast('파일을 저장했습니다.'); return true; }
+  catch(e){ const c=e&&e.code; toast(c==='declined'?'저장을 취소했습니다.':c==='rate_limited'?'다른 저장 창이 열려 있습니다. 잠시 후 다시 시도하세요.':'파일을 저장하지 못했습니다.'); return false; }
+}
+function fileStem(){ return (state.project.name||'확정측량').replace(/[\\/:*?"<>|]/g,'').slice(0,40); }
+async function renderMapImage(W,H){ return (await renderMapCanvas(W,H)).toDataURL('image/png'); }
+async function renderMapCanvas(W,H){
+  const c=document.createElement('canvas'); c.width=W; c.height=H; const x=c.getContext('2d'); x.fillStyle='#FFFFFF'; x.fillRect(0,0,W,H);
+  const b=dataBounds(true); if(!b) return c;
+  const pad=W*0.05; const w=Math.max(b[2]-b[0],20), h=Math.max(b[3]-b[1],20); const s=Math.min((W-pad*2)/w,(H-pad*2)/h); const cx=(b[0]+b[2])/2, cy=(b[1]+b[3])/2;
+  const T=p=>[W/2+(p[0]-cx)*s, H/2-(p[1]-cy)*s];
+  const rp=(r,cl)=>{ r.forEach((p,i)=>{ const q=T(p); i?x.lineTo(q[0],q[1]):x.moveTo(q[0],q[1]); }); if(cl) x.closePath(); };
+  let onO=false; if(vwOn()){ const list=vwTiles([cx-W/2/s,cy-H/2/s,cx+W/2/s,cy+H/2/s],s); await Promise.all(list.map(n=>waitTile(n.t))); onO=vwDraw(x,T,list,true); }
+  onO=drawOrtho(x,T,1)||onO;
+  x.lineWidth=onO?2:1.4; x.strokeStyle=onO?'#FF3B30':'#8E99AA'; x.beginPath(); for(const f of state.project.features){ if(f.isD) continue; for(const r of f.rings) rp(r,f.closed); } x.stroke();
+  if(cache.D.length){ x.beginPath(); for(const f of cache.D) for(const r of f.rings) rp(r,true); x.lineWidth=4; x.strokeStyle=onO?'#FF0000':'#E0262B'; x.stroke(); }
+  x.fillStyle=onO?'#FFFFFF':'#5A6577'; x.textAlign='center'; x.textBaseline='middle'; x.font=`600 ${Math.round(W*0.009)}px ${FONT}`; x.lineWidth=W*0.002; x.strokeStyle='rgba(0,0,0,.75)'; x.lineJoin='round';
+  for(const f of cache.parcels){ if(!f.jibun) continue; const fb=fBox(f); if((fb[2]-fb[0])*s<W*0.04) continue; const q=T(labelPt(f)); if(onO) x.strokeText(f.jibun+f.jimok,q[0],q[1]); x.fillText(f.jibun+f.jimok,q[0],q[1]); }
+  const nums=numbering(); const fs=Math.round(W*0.017); x.font=`700 ${fs}px ${FONT}`;
+  for(const p of state.photos){ if(!p.loc||p.role==='after') continue; const q=T(p.loc); const lab=shortNo(nums.get(p.id)); const tw=x.measureText(lab).width+fs*0.8, th=fs*1.5; const bx=q[0]-tw/2, by=q[1]-th-fs*0.6;
+    x.beginPath(); x.moveTo(q[0],q[1]); x.lineTo(q[0]-fs*0.35,by+th); x.lineTo(q[0]+fs*0.35,by+th); x.closePath(); x.fillStyle='#000'; x.fill();
+    x.fillStyle='#FFFFFF'; x.fillRect(bx,by,tw,th); x.lineWidth=fs*0.12; x.strokeStyle='#000'; x.strokeRect(bx,by,tw,th); x.fillStyle='#000'; x.fillText(lab,q[0],by+th/2+1); }
+  return c;
+}
+function contain(iw,ih,bw,bh){ const k=Math.min(bw/iw,bh/ih); return {w:iw*k,h:ih*k}; }
+async function exportPPT(){
+  if(!window.PptxGenJS){ toast('PPT 생성 기능을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'); return; }
+  if(!state.photos.length){ toast('출력할 사진이 없습니다.'); return; }
+  const btn=$('#btnPPT'); btn.disabled=true; btn.textContent='PPT 만드는 중…';
+  try{
+    const P=state.project, o=P.opt, F='맑은 고딕', nums=numbering();
+    const pptx=new PptxGenJS(); pptx.defineLayout({name:'A4P',width:8.27,height:11.69}); pptx.layout='A4P'; pptx.title=`${P.name} 지적확정측량 성과검사 현지사진`;
+    const X=0.6, CW=7.07, Y0=1.3, YB=11.1;
+    const header=(s,tag,title)=>{ s.addShape(pptx.ShapeType.rect,{x:X,y:0.55,w:CW,h:0.52,fill:{color:'FFFFFF'},line:{color:'1F3A5F',width:1}});
+      s.addText(tag,{x:X,y:0.55,w:1.15,h:0.52,fill:{color:'1F3A5F'},color:'FFFFFF',bold:true,fontSize:15,align:'center',valign:'middle',fontFace:F,margin:0});
+      s.addText(title,{x:X+1.3,y:0.55,w:CW-1.4,h:0.52,color:'111111',bold:true,fontSize:16,valign:'middle',fontFace:F,margin:0}); };
+    const jpg=async ph=>(await renderAnnotated(ph,1500)).toDataURL('image/jpeg',0.86).replace(/^data:/,'');
+    if(o.map && state.photos.some(p=>p.loc)){
+      const s=pptx.addSlide(); header(s,'붙임 2','촬영 위치도');
+      s.addImage({data:(await renderMapImage(2000,1500)).replace(/^data:/,''),x:X,y:Y0,w:CW,h:CW*0.75});
+      const rows=state.photos.filter(p=>p.role!=='after').map(p=>`${nums.get(p.id)}  ${p.tags.map(t=>t.l2?`${t.l1}${t.l2}`:t.l1).join(', ')||'-'}${p.loc?'':'  (위치 미지정)'}`);
+      s.addText(`${P.name||''} · 좌표계 ${CRS[P.crs].name}${P.ortho&&P.ortho.show?' · 배경 '+P.ortho.name:''} · 위치는 사진 GPS 또는 지도 지정 기준(수 m 오차 가능)`,{x:X,y:Y0+CW*0.75+0.08,w:CW,h:0.3,fontSize:9,color:'555555',fontFace:F,margin:0});
+      const half=Math.ceil(rows.length/2);
+      s.addText(rows.slice(0,half).join('\n')||' ',{x:X,y:Y0+CW*0.75+0.45,w:CW/2-0.1,h:YB-(Y0+CW*0.75+0.45),fontSize:9.5,valign:'top',fontFace:F,color:'222222',margin:0,paraSpaceAfter:2});
+      s.addText(rows.slice(half).join('\n')||' ',{x:X+CW/2+0.1,y:Y0+CW*0.75+0.45,w:CW/2-0.1,h:YB-(Y0+CW*0.75+0.45),fontSize:9.5,valign:'top',fontFace:F,color:'222222',margin:0,paraSpaceAfter:2});
+    }
+    const normals=state.photos.filter(p=>p.role==='normal'); const per=+o.per, rowsN=per/2, cw=CW/2, ch=(YB-Y0)/rowsN;
+    for(let i=0;i<normals.length;i+=per){ const s=pptx.addSlide(); header(s,'붙임 3','현지사진');
+      const chunk=normals.slice(i,i+per);
+      for(let j=0;j<chunk.length;j++){ const ph=chunk[j], cx=X+(j%2)*cw, cy=Y0+Math.floor(j/2)*ch;
+        s.addShape(pptx.ShapeType.rect,{x:cx,y:cy,w:cw,h:ch,fill:{color:'FFFFFF'},line:{color:'000000',width:0.75}});
+        const d=contain(ph.w,ph.h,cw-0.08,ch-0.08); s.addImage({data:await jpg(ph),x:cx+(cw-d.w)/2,y:cy+(ch-d.h)/2,w:d.w,h:d.h});
+        s.addText(nums.get(ph.id),{x:cx+0.07,y:cy+0.07,w:0.38,h:0.32,fontSize:12,bold:true,align:'center',valign:'middle',fill:{color:'FFFFFF'},line:{color:'000000',width:1},fontFace:F,margin:0,color:'000000'}); } }
+    const pairs=state.photos.filter(p=>p.role==='before').map(b=>({b,a:state.photos.find(p=>p.role==='after'&&p.pairOf===b.id)}));
+    if(o.pairs && pairs.length){
+      const bh=(YB-Y0-0.42)/2;
+      for(let i=0;i<pairs.length;i+=2){ const s=pptx.addSlide(); header(s,'붙임 3','현지조치사항 (당초·수정)');
+        s.addText('당초',{x:X,y:Y0,w:cw,h:0.42,fill:{color:'DCE8F5'},line:{color:'000000',width:0.75},bold:true,align:'center',valign:'middle',fontSize:13,fontFace:F,margin:0,color:'111111'});
+        s.addText('수정',{x:X+cw,y:Y0,w:cw,h:0.42,fill:{color:'DCE8F5'},line:{color:'000000',width:0.75},bold:true,align:'center',valign:'middle',fontSize:13,fontFace:F,margin:0,color:'111111'});
+        for(let j=0;j<2&&i+j<pairs.length;j++){ const pr=pairs[i+j], y=Y0+0.42+j*bh;
+          for(const [k,ph] of [[0,pr.b],[1,pr.a]]){ const cx=X+k*cw; s.addShape(pptx.ShapeType.rect,{x:cx,y,w:cw,h:bh,fill:{color:'FFFFFF'},line:{color:'000000',width:0.75}});
+            if(!ph){ s.addText('수정 사진 없음',{x:cx,y,w:cw,h:bh,align:'center',valign:'middle',fontSize:11,color:'888888',fontFace:F}); continue; }
+            const memoH=ph.memo?0.5:0; const d=contain(ph.w,ph.h,cw-0.1,bh-0.1-memoH); s.addImage({data:await jpg(ph),x:cx+(cw-d.w)/2,y:y+0.05+(bh-0.1-memoH-d.h)/2,w:d.w,h:d.h});
+            if(ph.memo) s.addText(ph.memo,{x:cx+0.08,y:y+bh-memoH-0.02,w:cw-0.16,h:memoH,fontSize:10,fontFace:F,color:'222222',valign:'middle',margin:0}); } } } }
+    const blob=await pptx.write({outputType:'blob'});
+    await saveFile(`${fileStem()}_현지사진_초안.pptx`, blob);
+  }catch(e){ toast('PPT를 만들지 못했습니다: '+(e&&e.message||'오류')); }
+  finally{ btn.disabled=false; btn.textContent=btn.dataset.label; }
+}
+async function exportZip(){
+  if(!window.JSZip){ toast('압축 기능을 불러오지 못했습니다.'); return; }
+  if(!state.photos.length){ toast('출력할 사진이 없습니다.'); return; }
+  const btn=$('#btnZip'); btn.disabled=true; const nums=numbering();
+  try{ const z=new JSZip();
+    for(const p of state.photos){ const c=await renderAnnotated(p,2000); const b=await new Promise(r=>c.toBlob(r,'image/jpeg',0.9)); const n=nums.get(p.id).replace(/\s/g,'_');
+      z.file(`${/^\d+$/.test(n)?n.padStart(2,'0'):n}.jpg`, b); }
+    await saveFile(`${fileStem()}_현지사진.zip`, await z.generateAsync({type:'blob'}));
+  }finally{ btn.disabled=false; }
+}
+
+/* ---------- 공통: 보고서 구성 ---------- */
+function reportParts(){
+  const nums=numbering();
+  return { nums,
+    normals: state.photos.filter(p=>p.role==='normal'),
+    pairs: state.photos.filter(p=>p.role==='before').map(b=>({b, a:state.photos.find(p=>p.role==='after'&&p.pairOf===b.id)})),
+    rows: state.photos.filter(p=>p.role!=='after').map(p=>`${nums.get(p.id)}  ${p.tags.map(t=>t.l2?`${t.l1}${t.l2}`:t.l1).join(', ')||'-'}${p.loc?'':'  (위치 미지정)'}`),
+    caption: `${state.project.name||''} · 좌표계 ${CRS[state.project.crs].name}${vwOn()?' · 배경 브이월드 항공사진':''}${state.project.ortho&&state.project.ortho.show?' · 배경 '+state.project.ortho.name:''} · 위치는 사진 GPS 또는 지도 지정 기준(수 m 오차 가능)`,
+    hasMap: state.project.opt.map && state.photos.some(p=>p.loc) };
+}
+function busy(btn,on,txt){ btn.disabled=on; btn.textContent=on?txt:btn.dataset.label; }
+function clipText(x,t,w){ if(x.measureText(t).width<=w) return t; while(t.length>1 && x.measureText(t+'…').width>w) t=t.slice(0,-1); return t+'…'; }
+function wrapText(x,t,w,maxLines){ const out=[]; let line=''; for(const ch of t){ if(x.measureText(line+ch).width>w){ out.push(line); line=ch; if(out.length===maxLines) break; } else line+=ch; } if(out.length<maxLines && line) out.push(line); return out; }
+
+/* ---------- PDF (쪽 그림 방식, 외부 글꼴 불필요) ---------- */
+async function buildPdfPages(){
+  const R=reportParts(), o=state.project.opt, K=150, PW=Math.round(8.27*K), PH=Math.round(11.69*K);
+  const X=0.6*K, CW=7.07*K, Y0=1.3*K, YB=11.1*K; const pages=[];
+  const newPage=(tag,title)=>{ const c=document.createElement('canvas'); c.width=PW; c.height=PH; const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,PW,PH);
+    x.lineWidth=2; x.strokeStyle='#1F3A5F'; x.strokeRect(X,0.55*K,CW,0.52*K); x.fillStyle='#1F3A5F'; x.fillRect(X,0.55*K,1.15*K,0.52*K);
+    x.textBaseline='middle'; x.fillStyle='#fff'; x.font=`700 ${0.2*K}px ${FONT}`; x.textAlign='center'; x.fillText(tag,X+0.575*K,0.81*K);
+    x.fillStyle='#111'; x.textAlign='left'; x.font=`700 ${0.22*K}px ${FONT}`; x.fillText(title,X+1.3*K,0.81*K); pages.push(c); return x; };
+  const box=(x,bx,by,bw,bh)=>{ x.lineWidth=1.5; x.strokeStyle='#000'; x.strokeRect(bx,by,bw,bh); };
+  const putImg=async(x,ph,bx,by,bw,bh)=>{ const im=await renderAnnotated(ph,1400); const d=contain(im.width,im.height,bw,bh); x.drawImage(im,bx+(bw-d.w)/2,by+(bh-d.h)/2,d.w,d.h); };
+  const numBox=(x,t,bx,by)=>{ x.font=`700 ${0.16*K}px ${FONT}`; const w=Math.max(0.38*K,x.measureText(t).width+0.16*K), h=0.32*K; x.fillStyle='#fff'; x.fillRect(bx,by,w,h); x.lineWidth=2; x.strokeStyle='#000'; x.strokeRect(bx,by,w,h); x.fillStyle='#000'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(t,bx+w/2,by+h/2+1); };
+  if(R.hasMap){ const x=newPage('붙임 2','촬영 위치도'); const mh=CW*0.75; x.drawImage(await renderMapCanvas(2000,1500),X,Y0,CW,mh); box(x,X,Y0,CW,mh);
+    let y=Y0+mh+0.12*K; x.fillStyle='#555'; x.font=`400 ${0.11*K}px ${FONT}`; x.textAlign='left'; x.textBaseline='top'; x.fillText(clipText(x,R.caption,CW),X,y); y+=0.32*K;
+    const half=Math.ceil(R.rows.length/2); x.fillStyle='#222'; x.font=`400 ${0.13*K}px ${FONT}`;
+    R.rows.forEach((r,i)=>{ const col=i<half?0:1, ri=i<half?i:i-half, yy=y+ri*0.22*K; if(yy>YB-0.15*K) return; x.fillText(clipText(x,r,CW/2-0.15*K), X+col*(CW/2+0.1*K), yy); }); }
+  const per=+o.per, rowsN=per/2, cw=CW/2, ch=(YB-Y0)/rowsN;
+  for(let i=0;i<R.normals.length;i+=per){ const x=newPage('붙임 3','현지사진'); const chunk=R.normals.slice(i,i+per);
+    for(let j=0;j<chunk.length;j++){ const ph=chunk[j], bx=X+(j%2)*cw, by=Y0+Math.floor(j/2)*ch; await putImg(x,ph,bx+6,by+6,cw-12,ch-12); box(x,bx,by,cw,ch); numBox(x,R.nums.get(ph.id),bx+0.07*K,by+0.07*K); } }
+  if(o.pairs && R.pairs.length){ const hh=0.42*K, bh=(YB-Y0-hh)/2;
+    for(let i=0;i<R.pairs.length;i+=2){ const x=newPage('붙임 3','현지조치사항 (당초·수정)');
+      ['당초','수정'].forEach((t,k)=>{ x.fillStyle='#DCE8F5'; x.fillRect(X+k*cw,Y0,cw,hh); box(x,X+k*cw,Y0,cw,hh); x.fillStyle='#111'; x.font=`700 ${0.18*K}px ${FONT}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText(t,X+k*cw+cw/2,Y0+hh/2); });
+      for(let j=0;j<2&&i+j<R.pairs.length;j++){ const pr=R.pairs[i+j], y=Y0+hh+j*bh;
+        for(const [k,ph] of [[0,pr.b],[1,pr.a]]){ const bx=X+k*cw; box(x,bx,y,cw,bh);
+          if(!ph){ x.fillStyle='#888'; x.font=`400 ${0.15*K}px ${FONT}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText('수정 사진 없음',bx+cw/2,y+bh/2); continue; }
+          const mh=ph.memo?0.5*K:0; await putImg(x,ph,bx+8,y+8,cw-16,bh-16-mh);
+          if(ph.memo){ x.fillStyle='#222'; x.font=`400 ${0.13*K}px ${FONT}`; x.textAlign='left'; x.textBaseline='top'; wrapText(x,ph.memo,cw-0.3*K,2).forEach((l,li)=>x.fillText(l,bx+0.15*K,y+bh-mh+li*0.2*K)); } } } } }
+  return pages;
+}
+function pdfFromJpegs(list){
+  const enc=new TextEncoder(); const parts=[]; let len=0; const offs=[];
+  const push=v=>{ const b=typeof v==='string'?enc.encode(v):v; parts.push(b); len+=b.length; };
+  const obj=(id,fn)=>{ offs[id]=len; push(`${id} 0 obj\n`); fn(); push('\nendobj\n'); };
+  push('%PDF-1.4\n'); push(new Uint8Array([37,226,227,207,211,10]));
+  const n=list.length, W=595.28, H=841.89;
+  obj(1,()=>push('<< /Type /Catalog /Pages 2 0 R >>'));
+  obj(2,()=>push(`<< /Type /Pages /Kids [${list.map((_,i)=>`${3+3*i} 0 R`).join(' ')}] /Count ${n} >>`));
+  list.forEach((j,i)=>{ const P=3+3*i;
+    obj(P,()=>push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /XObject << /Im${i} ${P+2} 0 R >> >> /Contents ${P+1} 0 R >>`));
+    const cs=`q ${W} 0 0 ${H} 0 0 cm /Im${i} Do Q`; obj(P+1,()=>push(`<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`));
+    obj(P+2,()=>{ push(`<< /Type /XObject /Subtype /Image /Width ${j.w} /Height ${j.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${j.bytes.length} >>\nstream\n`); push(j.bytes); push('\nendstream'); }); });
+  const total=3+3*n, xref=len; push(`xref\n0 ${total}\n0000000000 65535 f \n`); for(let i=1;i<total;i++) push(String(offs[i]).padStart(10,'0')+' 00000 n \n');
+  push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts,{type:'application/pdf'});
+}
+async function exportPDF(){
+  if(!state.photos.length){ toast('출력할 사진이 없습니다.'); return; }
+  const btn=$('#btnPDF'); busy(btn,true,'PDF 만드는 중…');
+  try{ const pages=await buildPdfPages(); if(!pages.length){ toast('출력할 쪽이 없습니다. 출력 구성을 확인해 주세요.'); return; }
+    const list=[]; for(const c of pages){ const b=await new Promise(r=>c.toBlob(r,'image/jpeg',0.88)); list.push({w:c.width,h:c.height,bytes:new Uint8Array(await b.arrayBuffer())}); }
+    await saveFile(`${fileStem()}_현지사진_초안.pdf`, pdfFromJpegs(list));
+  }catch(e){ toast('PDF를 만들지 못했습니다: '+(e&&e.message||'오류')); }
+  finally{ busy(btn,false); }
+}
+
+/* ---------- 워드 (.docx, 한글에서 열기 가능) ---------- */
+const xmlEsc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function withNumber(src,label){ const c=document.createElement('canvas'); c.width=src.width; c.height=src.height; const x=c.getContext('2d'); x.drawImage(src,0,0);
+  const fs=Math.round(c.width*0.045); x.font=`700 ${fs}px ${FONT}`; const w=Math.max(fs*2,x.measureText(label).width+fs*0.8), h=fs*1.6, m=fs*0.4;
+  x.fillStyle='#fff'; x.fillRect(m,m,w,h); x.lineWidth=Math.max(2,fs*0.1); x.strokeStyle='#000'; x.strokeRect(m,m,w,h); x.fillStyle='#000'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(label,m+w/2,m+h/2+1); return c; }
+async function exportDOCX(){
+  if(!window.JSZip){ toast('워드 생성 기능을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'); return; }
+  if(!state.photos.length){ toast('출력할 사진이 없습니다.'); return; }
+  const btn=$('#btnDOCX'); busy(btn,true,'워드 만드는 중…');
+  try{
+    const R=reportParts(), o=state.project.opt, media=[]; let did=1;
+    const F='맑은 고딕';
+    const run=(t,{b,sz=20,color}={})=>`<w:r><w:rPr><w:rFonts w:ascii="${F}" w:eastAsia="${F}" w:hAnsi="${F}"/>${b?'<w:b/>':''}${color?`<w:color w:val="${color}"/>`:''}<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${xmlEsc(t)}</w:t></w:r>`;
+    const para=(inner,{jc,after=40}={})=>`<w:p><w:pPr><w:spacing w:before="0" w:after="${after}"/>${jc?`<w:jc w:val="${jc}"/>`:''}</w:pPr>${inner}</w:p>`;
+    const img=async(canvas,maxW,maxH)=>{ const d=contain(canvas.width,canvas.height,maxW,maxH); const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.85)); media.push(blob); const i=media.length, id=did++;
+      const cx=Math.round(d.w*914400), cy=Math.round(d.h*914400);
+      return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${id}" name="그림 ${id}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${id}" name="image${i}.jpeg"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImg${i}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`; };
+    const border=['top','left','bottom','right','insideH','insideV'].map(k=>`<w:${k} w:val="single" w:sz="6" w:space="0" w:color="000000"/>`).join('');
+    const cell=(w,inner,{fill,v='center'}={})=>`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${fill?`<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>`:''}<w:vAlign w:val="${v}"/></w:tcPr>${inner||para('')}</w:tc>`;
+    const table=(cols,rows)=>`<w:tbl><w:tblPr><w:tblW w:w="${cols.reduce((a,b)=>a+b,0)}" w:type="dxa"/><w:jc w:val="center"/><w:tblBorders>${border}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="40" w:type="dxa"/><w:left w:w="60" w:type="dxa"/><w:bottom w:w="40" w:type="dxa"/><w:right w:w="60" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${cols.map(c=>`<w:gridCol w:w="${c}"/>`).join('')}</w:tblGrid>${rows.map(r=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${r}</w:tr>`).join('')}</w:tbl>`;
+    const CWt=9866, half=4933, CWin=CWt/1440, HWin=half/1440;
+    const header=(tag,title)=>table([1650,CWt-1650],[cell(1650,para(run(tag,{b:true,sz:28,color:'FFFFFF'}),{jc:'center',after:0}),{fill:'1F3A5F'})+cell(CWt-1650,para(run(title,{b:true,sz:30}),{after:0}))])+para('',{after:80});
+    const pageBreak='<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+    const blocks=[];
+    if(R.hasMap){ blocks.push(header('붙임 2','촬영 위치도')+para(await img(await renderMapCanvas(2000,1500),CWin,CWin*0.75),{jc:'center'})+para(run(R.caption,{sz:16,color:'555555'}),{after:100})+R.rows.map(r=>para(run(r,{sz:18}),{after:0})).join('')); }
+    const per=+o.per, rowsN=per/2, maxH=Math.max(1.3,(9.2/rowsN)-0.15), maxW=HWin-0.12;
+    for(let i=0;i<R.normals.length;i+=per){ const chunk=R.normals.slice(i,i+per); const rows=[];
+      for(let j=0;j<chunk.length;j+=2){ let tr=''; for(const ph of [chunk[j],chunk[j+1]]){ if(!ph){ tr+=cell(half,para('')); continue; } const c=withNumber(await renderAnnotated(ph,1400),R.nums.get(ph.id)); tr+=cell(half,para(await img(c,maxW,maxH),{jc:'center',after:0})); } rows.push(tr); }
+      blocks.push(header('붙임 3','현지사진')+table([half,half],rows)); }
+    if(o.pairs && R.pairs.length){ for(let i=0;i<R.pairs.length;i+=2){ const rows=[cell(half,para(run('당초',{b:true,sz:24}),{jc:'center',after:0}),{fill:'DCE8F5'})+cell(half,para(run('수정',{b:true,sz:24}),{jc:'center',after:0}),{fill:'DCE8F5'})];
+        for(const pr of R.pairs.slice(i,i+2)){ let tr=''; for(const ph of [pr.b,pr.a]){ if(!ph){ tr+=cell(half,para(run('수정 사진 없음',{sz:18,color:'888888'}),{jc:'center'})); continue; }
+            tr+=cell(half,para(await img(await renderAnnotated(ph,1400),maxW,3.6),{jc:'center',after:40})+(ph.memo?para(run(ph.memo,{sz:18})):''),{v:'top'}); } rows.push(tr); }
+        blocks.push(header('붙임 3','현지조치사항 (당초·수정)')+table([half,half],rows)); } }
+    if(!blocks.length){ toast('출력할 내용이 없습니다. 출력 구성을 확인해 주세요.'); return; }
+    const body=blocks.join(pageBreak)+para('');
+    const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1000" w:right="1020" w:bottom="1000" w:left="1020" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+    const z=new JSZip();
+    z.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+    z.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+    z.file('word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+media.map((_,i)=>`<Relationship Id="rIdImg${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image${i+1}.jpeg"/>`).join('')+'</Relationships>');
+    z.file('word/document.xml',doc);
+    media.forEach((b,i)=>z.file(`word/media/image${i+1}.jpeg`,b));
+    await saveFile(`${fileStem()}_현지사진_초안.docx`, await z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}));
+  }catch(e){ toast('워드 파일을 만들지 못했습니다: '+(e&&e.message||'오류')); }
+  finally{ busy(btn,false); }
+}
+
+$('#btnPPT').onclick=exportPPT; $('#btnZip').onclick=exportZip; $('#btnPDF').onclick=exportPDF; $('#btnDOCX').onclick=exportDOCX;
+function renderReport(){
+  const P=state.project; $('#rpName').value=P.name||''; $('#rpDate').value=P.date||''; $('#rpWho').value=P.inspector||'';
+  $('#opMap').checked=P.opt.map; $('#opPairs').checked=P.opt.pairs; $('#opPer').value=String(P.opt.per);
+  const ph=state.photos; const noLoc=ph.filter(p=>!p.loc).length, noTag=ph.filter(p=>!p.tags.length).length, noLine=ph.filter(p=>!p.strokes.length).length, orphan=ph.filter(p=>p.role==='after'&&!p.pairOf).length;
+  const it=[];
+  it.push([!!P.source && !P.isSample, P.source ? `경계 데이터: ${P.source}${P.isSample?' (예시 데이터 — 실제 성과로 바꿔야 함)':''}` : '경계 데이터가 없습니다']);
+  it.push([!P.crsGuessed, `좌표계: ${CRS[P.crs].name}${P.crsGuessed?' (가정값, 확인 필요)':''}`]);
+  it.push([ph.length>0, `현장사진 ${ph.length}장`]);
+  if(noLoc) it.push([false, `위치 미지정 ${noLoc}장 — 위치도에 표시되지 않습니다`]);
+  if(noLine) it.push([false, `경계선 없는 사진 ${noLine}장`]);
+  if(noTag) it.push([false, `라벨 없는 사진 ${noTag}장`]);
+  if(orphan) it.push([false, `당초 사진과 짝이 없는 수정 사진 ${orphan}장`]);
+  $('#checks').innerHTML=it.map(([ok,t])=>`<li class="${ok?'':'w'}"><span class="dot"></span><span>${esc(t)}</span></li>`).join('');
+  $('#storeNote').textContent = DB.db ? '작업 내용(경계 데이터·사진·표시)은 이 기기의 브라우저에만 저장됩니다. 다른 기기와 공유되지 않으며, 브라우저 데이터를 지우면 함께 삭제됩니다.' : '이 브라우저에서는 기기 저장을 쓸 수 없어 창을 닫으면 작업이 사라집니다. 끝나기 전에 PPT나 사진 묶음으로 저장하세요.';
+}
+$('#rpName').addEventListener('input',e=>{ state.project.name=e.target.value; renderHeader(); save(); });
+$('#rpDate').addEventListener('input',e=>{ state.project.date=e.target.value; save(); });
+$('#rpWho').addEventListener('input',e=>{ state.project.inspector=e.target.value; save(); });
+$('#opMap').onchange=e=>{ state.project.opt.map=e.target.checked; save(); };
+$('#opPairs').onchange=e=>{ state.project.opt.pairs=e.target.checked; save(); };
+$('#opPer').onchange=e=>{ state.project.opt.per=+e.target.value; save(); };
+$('#btnReset').onclick=async()=>{ if(!await ask('경계 데이터와 사진, 표시한 내용을 이 기기에서 모두 지웁니다. 되돌릴 수 없습니다.','모두 삭제')) return;
+  await DB.clear('blobs'); await DB.del('kv','state'); blobs.clear(); imgs.clear();
+  state.photos=[]; state.active=null; Object.assign(state.project,{name:'',date:'',inspector:'',source:'',kind:'',features:[],texts:[],fields:[],layers:[],isSample:false,crs:'5186',crsGuessed:true,swapped:false,districtLayer:'__auto'});
+  state.project.ortho=null; orthoImg=null; derive(); mapFit(); renderAll(); save(); toast('새 작업을 시작합니다.'); };
+$('#selEdit').onclick=()=>state.active&&openEditor(state.active);
+$('#selLoc').onclick=()=>state.active&&startSetLoc(state.active,false);
+
+/* ---------- 예시 데이터 ---------- */
+async function samplePhoto(kind){
+  const W=1600,H=1200,c=document.createElement('canvas'); c.width=W; c.height=H; const x=c.getContext('2d');
+  const sky=x.createLinearGradient(0,0,0,H*0.42); sky.addColorStop(0,'#A9C9E8'); sky.addColorStop(1,'#E3EEF7'); x.fillStyle=sky; x.fillRect(0,0,W,H*0.42);
+  x.fillStyle='#7F9472'; x.beginPath(); x.moveTo(0,H*0.40); for(let i=0;i<=8;i++) x.lineTo(W*i/8, H*(0.33+((i*37)%7)/100)); x.lineTo(W,H*0.42); x.lineTo(0,H*0.42); x.fill();
+  const g=x.createLinearGradient(0,H*0.4,0,H); g.addColorStop(0,'#B7A574'); g.addColorStop(1,'#8E7B4E'); x.fillStyle=g; x.fillRect(0,H*0.4,W,H*0.6);
+  let seed=kind==='a'?7:13; const rnd=()=>{ seed=(seed*9301+49297)%233280; return seed/233280; };
+  x.strokeStyle='rgba(90,75,40,.35)'; x.lineWidth=2; for(let i=0;i<900;i++){ const px=rnd()*W, py=H*0.42+rnd()*H*0.58; x.beginPath(); x.moveTo(px,py); x.lineTo(px+(rnd()-.5)*10,py-6-rnd()*16); x.stroke(); }
+  if(kind==='a'){ x.fillStyle='#C9C6BF'; x.beginPath(); x.moveTo(980,H*0.42); x.lineTo(1060,H*0.42); x.lineTo(720,H); x.lineTo(560,H); x.closePath(); x.fill(); x.fillStyle='#A9A6A0'; x.beginPath(); x.moveTo(1060,H*0.42); x.lineTo(1075,H*0.42); x.lineTo(745,H); x.lineTo(720,H); x.fill(); }
+  else { x.strokeStyle='#5E6B5A'; x.lineWidth=7; for(let i=0;i<7;i++){ const px=220+i*200, top=H*0.47+i*8; x.beginPath(); x.moveTo(px,top); x.lineTo(px,top+190); x.stroke(); } x.lineWidth=2; x.beginPath(); x.moveTo(220,H*0.5); x.lineTo(1420,H*0.55); x.stroke(); }
+  x.fillStyle='rgba(255,255,255,.9)'; x.font=`700 44px ${FONT}`; x.textAlign='right'; x.fillText('예시 사진',W-40,H-40);
+  return await new Promise(r=>c.toBlob(r,'image/jpeg',0.85));
+}
+async function makeSample(){
+  const E=179400, N=451320; const R=(a,b,c,d)=>[[E+a,N+b],[E+c,N+b],[E+c,N+d],[E+a,N+d]];
+  const parcel=(j,m,r)=>({id:j, rings:[r], closed:true, layer:'필지', attrs:{}, });
+  const feats=[
+    {id:1, rings:[R(0,0,320,200)], closed:true, layer:'지구계', attrs:{}},
+    parcel(2,'',R(0,0,320,20)), parcel(3,'',R(0,20,150,90)), parcel(4,'',R(150,20,190,50)), parcel(5,'',R(150,50,190,90)),
+    parcel(6,'',R(190,20,320,90)), parcel(7,'',R(0,90,320,110)), parcel(8,'',R(0,110,110,200)), parcel(9,'',R(110,110,220,200)), parcel(10,'',R(220,110,320,200)),
+    {id:11, rings:[R(-60,-50,0,200)], closed:true, layer:'필지', attrs:{}}, {id:12, rings:[R(0,-50,320,0)], closed:true, layer:'필지', attrs:{}}
+  ];
+  const texts=[['101공',160,10],['102장',75,55],['103잡',170,35],['104도',170,70],['105공',255,55],['106도',160,100],['107장',55,155],['108장',165,155],['109장',270,155],['201전',-30,75],['202답',160,-25]]
+    .map(([t,a,b])=>({p:[E+a,N+b], text:t, layer:'지번'}));
+  Object.assign(state.project,{name:'예시 일반산업단지', date:'', inspector:'', crs:'5186', crsGuessed:true, swapped:false, source:'예시_경계.dxf', kind:'dxf', isSample:true,
+    features:feats, texts, fields:[], layers:[{name:'지구계',n:1},{name:'필지',n:11}], districtLayer:'__auto'});
+  derive();
+  const mk=async(id,kind,loc,strokes,tags,memo,role)=>{ const b=await samplePhoto(kind); blobs.set(id,b); await DB.put('blobs',id,b);
+    return {id, w:1600, h:1200, ll:null, loc, locSrc:'map', time:'', strokes, tags, role, pairOf:null, memo, sample:true}; };
+  state.photos=[
+    await mk('sample1','a',[E+111,N+150],[{pts:[[1068,505],[740,1195]]}],[{x:520,y:820,kind:'in',l1:'지구 내',l2:'(107, 장)'},{x:1180,y:860,kind:'in',l1:'지구 내',l2:'(108, 장)'}],'',"normal"),
+    await mk('sample2','b',[E+165,N+2],[{pts:[[0,620],[1600,690]]}],[{x:800,y:470,kind:'out',l1:'지구 외',l2:''},{x:800,y:950,kind:'in',l1:'지구 내',l2:'(101, 공)'}],'','normal')
+  ];
+  state.active='sample1';
+}
+
+
+/* ---------- 내 위치 (GPS) ---------- */
+const gps={watch:null, pos:null, ll:null, acc:null, t:0, follow:false, first:false};
+function startGps(silent){
+  if(!navigator.geolocation){ if(!silent) toast('이 기기·브라우저에서는 위치를 쓸 수 없습니다.'); return; }
+  if(location.protocol!=='https:' && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)){ if(!silent) toast('위치는 https 주소에서만 쓸 수 있습니다.'); return; }
+  if(gps.watch!=null) return;
+  gps.first=!silent;
+  gps.watch=navigator.geolocation.watchPosition(p=>{
+    gps.ll=[p.coords.longitude,p.coords.latitude]; gps.acc=p.coords.accuracy; gps.t=Date.now(); gps.pos=llToLocal(gps.ll);
+    if(gps.pos && (gps.first||gps.follow)){ map.v.cx=gps.pos[0]; map.v.cy=gps.pos[1]; if(gps.first && map.v.s<2) map.v.s=4; gps.first=false; }
+    renderGps(); req();
+  }, err=>{ if(!silent||err.code===1) toast(err.code===1?'위치 권한이 꺼져 있습니다. 브라우저(또는 휴대폰) 설정에서 위치를 허용해 주세요.':'위치를 받지 못했습니다. 하늘이 트인 곳에서 다시 시도하세요.'); stopGps(); },
+  {enableHighAccuracy:true, maximumAge:3000, timeout:30000});
+  renderGps();
+}
+function stopGps(){ if(gps.watch!=null && navigator.geolocation) navigator.geolocation.clearWatch(gps.watch); gps.watch=null; gps.pos=null; gps.follow=false; renderGps(); req(); }
+function renderGps(){
+  $('#btnGps').setAttribute('aria-pressed',String(gps.watch!=null)); $('#gpsFollow').setAttribute('aria-pressed',String(gps.follow));
+  const box=$('#gpsInfo'); box.hidden=gps.watch==null; if(box.hidden) return;
+  if(!gps.pos){ $('#gpsCoord').textContent=gps.ll?'좌표 변환 기능을 불러오지 못했습니다.':'위치를 찾는 중…'; $('#gpsWhere').textContent=''; return; }
+  $('#gpsCoord').innerHTML=`<b>X(북) ${fmt(gps.pos[1])} · Y(동) ${fmt(gps.pos[0])}</b><br>오차 약 ±${Math.round(gps.acc)}m · ${CRS[state.project.crs].name.split(' (')[0]}`;
+  const ind=inDistrict(gps.pos); const nb=nearby(gps.pos,40).filter(n=>n.jibun)[0];
+  $('#gpsWhere').textContent=[ind===null?'':(ind?'지구 내':'지구 외'), nb?`가까운 필지 ${nb.jibun}${nb.jimok}${nb.f?` (${fmt(fDist(gps.pos,nb.f),1)}m)`:''}`:''].filter(Boolean).join(' · ') + (gps.acc>15?' · 오차가 커서 참고용입니다':'');
+}
+$('#btnGps').onclick=()=>{ if(gps.watch!=null){ if(gps.pos){ map.v.cx=gps.pos[0]; map.v.cy=gps.pos[1]; req(); } else stopGps(); } else startGps(false); };
+$('#gpsOff').onclick=stopGps;
+$('#gpsFollow').onclick=()=>{ gps.follow=!gps.follow; if(gps.follow&&gps.pos){ map.v.cx=gps.pos[0]; map.v.cy=gps.pos[1]; req(); } renderGps(); };
+$('#gpsCopy').onclick=async()=>{ if(!gps.pos) return; const t=`X ${gps.pos[1].toFixed(2)}, Y ${gps.pos[0].toFixed(2)} (±${Math.round(gps.acc)}m)`; try{ await navigator.clipboard.writeText(t); toast('좌표를 복사했습니다.'); }catch(e){ toast(t); } };
+document.addEventListener('pointerdown',e=>{ if(e.target.matches && e.target.matches('input[data-kind="cam"]')) startGps(true); },true);
+
+/* ---------- 브이월드 항공사진 (WMTS) ---------- */
+const tiles=new Map(); let vwWarned=false;
+function vwOn(){ const v=state.project.opt.vw; return !!(v && v.on && v.key && window.proj4); }
+function localToLL(p){ try{ return proj4(CRS[state.project.crs].def,'WGS84',p); }catch(e){ return null; } }
+function ll2tile(lon,lat,z){ const n=2**z, r=lat*Math.PI/180; return [(lon+180)/360*n, (1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*n]; }
+function tile2ll(x,y,z){ const n=2**z; return [x/n*360-180, Math.atan(Math.sinh(Math.PI*(1-2*y/n)))*180/Math.PI]; }
+function getTile(z,x,y){
+  const k=`${z}/${x}/${y}`; let t=tiles.get(k); if(t) return t;
+  const url=`https://api.vworld.kr/req/wmts/1.0.0/${encodeURIComponent(state.project.opt.vw.key)}/Satellite/${z}/${y}/${x}.jpeg`;
+  t={ok:false, cors:true, fail:false, img:new Image()}; t.p=new Promise(res=>t.res=res);
+  const load=(cors)=>{ const im=new Image(); if(cors) im.crossOrigin='anonymous'; im.onload=()=>{ t.img=im; t.ok=true; t.cors=cors; t.res(); req(); };
+    im.onerror=()=>{ if(cors) load(false); else { t.fail=true; t.res(); if(!vwWarned){ vwWarned=true; toast('브이월드 항공사진을 불러오지 못했습니다. 인증키와 등록한 서비스 주소를 확인해 주세요.'); } } }; im.src=url; };
+  load(true); tiles.set(k,t);
+  if(tiles.size>500){ let i=0; for(const key of tiles.keys()){ tiles.delete(key); if(++i>150) break; } }
+  return t;
+}
+function waitTile(t){ return Promise.race([t.p, new Promise(r=>setTimeout(r,6000))]); }
+function vwTiles(wb, s){
+  const a=localToLL([wb[0],wb[1]]), b=localToLL([wb[2],wb[3]]), c=localToLL([wb[0],wb[3]]), d=localToLL([wb[2],wb[1]]);
+  if(!a||!b||!c||!d) return [];
+  const lons=[a[0],b[0],c[0],d[0]], lats=[a[1],b[1],c[1],d[1]], lat=(Math.min(...lats)+Math.max(...lats))/2;
+  let z=Math.round(Math.log2(156543.03392*Math.cos(lat*Math.PI/180)*s)); z=Math.max(7,Math.min(19,z));
+  let r;
+  for(;z>=7;z--){ const p0=ll2tile(Math.min(...lons),Math.max(...lats),z), p1=ll2tile(Math.max(...lons),Math.min(...lats),z);
+    r=[Math.floor(p0[0]),Math.floor(p0[1]),Math.floor(p1[0]),Math.floor(p1[1])]; if((r[2]-r[0]+1)*(r[3]-r[1]+1)<=90) break; }
+  const out=[]; const P=ll=>proj4('WGS84',CRS[state.project.crs].def,ll);
+  for(let x=r[0];x<=r[2];x++) for(let y=r[1];y<=r[3];y++){
+    try{ out.push({t:getTile(z,x,y), tl:P(tile2ll(x,y,z)), tr:P(tile2ll(x+1,y,z)), bl:P(tile2ll(x,y+1,z))}); }catch(e){} }
+  return out;
+}
+function vwDraw(ctx,T,list,exportMode){
+  let any=false;
+  for(const n of list){ const t=n.t; if(!t.ok || (exportMode && !t.cors)) continue;
+    const a=T(n.tl), b=T(n.tr), c=T(n.bl); ctx.save(); ctx.transform((b[0]-a[0])/256,(b[1]-a[1])/256,(c[0]-a[0])/256,(c[1]-a[1])/256,a[0],a[1]);
+    ctx.drawImage(t.img,0,0,256.6,256.6); ctx.restore(); any=true; }
+  return any;
+}
+function renderVw(){ const v=state.project.opt.vw||{}; $('#vwKey').value=v.key||''; $('#vwOn').checked=!!v.on; $('#btnVw').hidden=!v.key; $('#btnVw').setAttribute('aria-pressed',String(!!v.on)); }
+$('#vwKey').addEventListener('change',e=>{ const v=state.project.opt.vw=state.project.opt.vw||{}; v.key=e.target.value.trim(); if(v.key && v.on==null) v.on=true; tiles.clear(); vwWarned=false; renderVw(); req(); save(); });
+$('#vwOn').onchange=e=>{ const v=state.project.opt.vw=state.project.opt.vw||{}; v.on=e.target.checked; if(v.on && !v.key) toast('인증키를 먼저 넣어 주세요.'); renderVw(); req(); save(); };
+$('#btnVw').onclick=()=>{ const v=state.project.opt.vw; if(!v) return; v.on=!v.on; renderVw(); req(); save(); };
+
+/* ---------- 앱 설치 (홈 화면) ---------- */
+let installEvt=null;
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); installEvt=e; $('#btnInstall').hidden=false; });
+$('#btnInstall').onclick=async()=>{ if(!installEvt) return; installEvt.prompt(); try{ await installEvt.userChoice; }catch(e){} installEvt=null; $('#btnInstall').hidden=true; };
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+
+/* ---------- 시작 ---------- */
+async function boot(){
+  await DB.open();
+  let restored=false;
+  const raw=await DB.get('kv','state');
+  if(raw){ try{ const s=JSON.parse(raw); Object.assign(state.project,s.project); state.project.opt=Object.assign({map:true,pairs:true,per:10},s.project.opt||{}); state.photos=s.photos||[]; state.active=s.active||null; restored=true; }catch(e){} }
+  if(!restored) await makeSample();
+  if(state.project.ortho){ const ob=await DB.get('blobs','__ortho'); if(ob) orthoImg=await blobToImg(ob); else state.project.ortho=null; }
+  derive(); renderAll(); renderVw(); mapResize(); mapFit(); save();
+  if(!window.proj4) toast('좌표 변환 기능을 불러오지 못해 사진 GPS 위치를 쓸 수 없습니다. 지도에서 위치를 지정하세요.');
+}
+const mq=matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener&&mq.addEventListener('change',()=>{ req(); renderAll(); });
+new MutationObserver(()=>{ req(); }).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>{ req(); if(ed.ph) edDraw(); });
+boot();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "지적확정측량 현장지원",
+  "short_name": "확정측량",
+  "description": "지적확정측량 성과검사 현장사진 경계선·라벨 표시와 보고서 작성",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F3F6FA",
+  "theme_color": "#1B5ACB",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
